@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ===================
+  # EXCEL CREATOR APP
+  # ===================
+  web:
+    build: .
+    restart: always
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    environment:
+      - DEBUG=False
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ZAI_API_KEY=${ZAI_API_KEY}
+    expose:
+      - "8000"
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+      - n8n
+
+  # ===================
+  # N8N AUTOMATION
+  # ===================
+  n8n:
+    image: n8nio/n8n:latest
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=n8n.statlabo.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.statlabo.com/
+      - GENERIC_TIMEZONE=Europe/Paris
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-changeme123}
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  media_data:
+  static_data:
+  n8n_data:

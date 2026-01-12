@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Création de Fichier Excel - BP 2026</title>
+    <meta name="description"
+        content="Créez des fichiers Excel configurables pour le Budget Prévisionnel 2026 avec l'aide de l'IA">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">📊</span>
+                <div class="logo-text">
+                    <h1>Excel Creator</h1>
+                    <span class="subtitle">Budget Prévisionnel 2026</span>
+                </div>
+            </div>
+            <nav class="nav-buttons">
+                <button id="btn-new" class="btn btn-secondary">
+                    <span>📄</span> Nouveau
+                </button>
+                <button id="btn-ai" class="btn btn-ai">
+                    <span>🤖</span> Générer avec IA
+                </button>
+                <button id="btn-consolidation" class="btn btn-secondary">
+                    <span>📁</span> Consolidation
+                </button>
+                <button id="btn-download" class="btn btn-primary" disabled>
+                    <span>📥</span> Télécharger Excel
+                </button>
+            </nav>
+        </div>
+    </header>
+
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Left Panel - Sheets -->
+        <aside class="panel sheets-panel">
+            <div class="panel-header">
+                <h2>📋 Feuilles</h2>
+                <button id="btn-add-sheet" class="btn-icon" title="Ajouter une feuille">➕</button>
+            </div>
+            <ul id="sheet-list" class="sheet-list">
+                <li class="sheet-item active" data-index="0">
+                    <span class="sheet-icon">📄</span>
+                    <span class="sheet-name">Feuille1</span>
+                    <button class="btn-delete-sheet" title="Supprimer">🗑️</button>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Center Panel - Configuration -->
+        <section class="panel config-panel">
+            <div class="panel-header">
+                <h2>⚙️ Configuration</h2>
+                <div class="sheet-name-edit">
+                    <label>Nom:</label>
+                    <input type="text" id="sheet-name" value="Feuille1" placeholder="Nom de la feuille">
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="columns">📊 Colonnes</button>
+                <button class="tab" data-tab="rows">📋 Lignes</button>
+                <button class="tab" data-tab="cells">✏️ Cellules</button>
+                <button class="tab" data-tab="merges">🔗 Fusions</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Columns Tab -->
+                <div id="tab-columns" class="tab-pane active">
+                    <div class="add-section">
+                        <label>Ajouter colonnes:</label>
+                        <input type="number" id="col-count" value="1" min="1" max="50">
+                        <button id="btn-add-cols" class="btn btn-small">➕ Ajouter</button>
+                    </div>
+                    <table class="config-table" id="columns-table">
+                        <thead>
+                            <tr>
+                                <th>Colonne</th>
+                                <th>Largeur</th>
+                                <th>En-tête</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Rows Tab -->
+                <div id="tab-rows" class="tab-pane">
+                    <div class="add-section">
+                        <label>Ajouter lignes:</label>
+                        <input type="number" id="row-count" value="1" min="1" max="100">
+                        <button id="btn-add-rows" class="btn btn-small">➕ Ajouter</button>
+                    </div>
+                    <table class="config-table" id="rows-table">
+                        <thead>
+                            <tr>
+                                <th>Ligne</th>
+                                <th>Hauteur</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Cells Tab -->
+                <div id="tab-cells" class="tab-pane">
+                    <div class="cell-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ligne:</label>
+                                <input type="number" id="cell-row" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Colonne:</label>
+                                <input type="number" id="cell-col" value="1" min="1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Valeur:</label>
+                            <input type="text" id="cell-value" placeholder="Contenu de la cellule">
+                        </div>
+                        <div class="form-row">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cell-bold"> <strong>Gras</strong>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cell-italic"> <em>Italique</em>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cell-underline"> <u>Souligné</u>
+                            </label>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Couleur fond:</label>
+                                <input type="color" id="cell-bg-color" value="#ffffff">
+                            </div>
+                            <div class="form-group">
+                                <label>Couleur texte:</label>
+                                <input type="color" id="cell-font-color" value="#000000">
+                            </div>
+                            <div class="form-group">
+                                <label>Taille:</label>
+                                <input type="number" id="cell-font-size" value="11" min="6" max="72">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Alignement:</label>
+                                <select id="cell-align">
+                                    <option value="left">Gauche</option>
+                                    <option value="center">Centre</option>
+                                    <option value="right">Droite</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Bordure:</label>
+                                <select id="cell-border">
+                                    <option value="">Aucune</option>
+                                    <option value="thin">Fine</option>
+                                    <option value="medium">Moyenne</option>
+                                    <option value="thick">Épaisse</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button id="btn-add-cell" class="btn btn-primary">➕ Ajouter cellule</button>
+                    </div>
+                    <table class="config-table" id="cells-table">
+                        <thead>
+                            <tr>
+                                <th>Cellule</th>
+                                <th>Valeur</th>
+                                <th>Style</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- Merges Tab -->
+                <div id="tab-merges" class="tab-pane">
+                    <div class="merge-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Début - Ligne:</label>
+                                <input type="number" id="merge-start-row" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Colonne:</label>
+                                <input type="number" id="merge-start-col" value="1" min="1">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Fin - Ligne:</label>
+                                <input type="number" id="merge-end-row" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Colonne:</label>
+                                <input type="number" id="merge-end-col" value="1" min="1">
+                            </div>
+                        </div>
+                        <button id="btn-add-merge" class="btn btn-primary">🔗 Ajouter fusion</button>
+                    </div>
+                    <table class="config-table" id="merges-table">
+                        <thead>
+                            <tr>
+                                <th>Plage</th>
+                                <th>Cellules</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel - Preview -->
+        <aside class="panel preview-panel">
+            <div class="panel-header">
+                <h2>👁️ Aperçu</h2>
+            </div>
+            <div class="preview-container">
+                <table id="preview-table" class="preview-table">
+                    <tbody></tbody>
+                </table>
+            </div>
+        </aside>
+    </main>
+
+    <!-- AI Modal -->
+    <div id="ai-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🤖 Génération par Intelligence Artificielle</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Décrivez en langage naturel le fichier Excel que vous souhaitez créer.
+                    L'IA génèrera automatiquement toute la configuration.
+                </p>
+
+                <div class="form-group">
+                    <label>🔑 Clé API Z.ai:</label>
+                    <input type="password" id="ai-api-key" placeholder="Entrez votre clé API...">
+                    <small><a href="https://open.bigmodel.cn" target="_blank">Obtenir une clé API</a></small>
+                </div>
+
+                <div class="form-group">
+                    <label>✍️ Votre demande:</label>
+                    <textarea id="ai-prompt" rows="6" placeholder="Exemple:
+Créer un tableau budget BP 2026 avec:
+- Titre 'Budget Prévisionnel 2026' fusionné, centré, bleu
+- Colonnes: Catégorie, Janvier, Février, Mars, Total
+- Lignes: Salaires, Fournitures, Déplacements, TOTAL
+- En-têtes avec fond bleu et texte blanc
+- Ligne TOTAL en gras avec fond gris"></textarea>
+                </div>
+
+                <div id="ai-status" class="ai-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary modal-cancel">Annuler</button>
+                <button id="btn-ai-generate" class="btn btn-ai">✨ Générer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p>Génération en cours...</p>
+    </div>
+
+    <!-- Consolidation Modal -->
+    <div id="consolidation-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📁 Consolidation de Fichiers Excel</h2>
+                <button class="modal-close" onclick="closeConsolidationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Combinez plusieurs fichiers Excel (un par site/responsable) en un seul fichier de synthèse.
+                </p>
+
+                <div class="form-group">
+                    <label>📁 Fichiers Excel:</label>
+                    <input type="file" id="consolidation-files" multiple accept=".xlsx,.xls" style="width:100%;">
+                </div>
+
+                <div id="files-list" style="margin: 15px 0; max-height: 150px; overflow-y: auto;"></div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Feuille:</label>
+                        <input type="text" id="cons-sheet" value="Feuille1" style="width:120px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Colonnes:</label>
+                        <input type="text" id="cons-start-col" value="E" style="width:50px;">
+                        <span>à</span>
+                        <input type="text" id="cons-end-col" value="P" style="width:50px;">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lignes:</label>
+                        <input type="number" id="cons-start-row" value="1" min="1" style="width:70px;">
+                        <span>à</span>
+                        <input type="number" id="cons-end-row" value="10" min="1" style="width:70px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Grouper par:</label>
+                        <select id="cons-group-by">
+                            <option value="branch">Branche</option>
+                            <option value="responsible">Responsable</option>
+                            <option value="cost_center">Centre Coût</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 15px;">
+                    <label><input type="checkbox" id="cons-use-ai"> 🤖 Utiliser IA pour analyser</label>
+                </div>
+
+                <div id="cons-ai-section" style="display:none; margin-top: 10px;">
+                    <div class="form-group">
+                        <label>Clé API Z.ai:</label>
+                        <input type="password" id="cons-api-key" placeholder="Votre clé API...">
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea id="cons-description" rows="2"
+                            placeholder="Décrivez ce que vous voulez consolider..."></textarea>
+                    </div>
+                    <button class="btn btn-small btn-ai" onclick="analyzeWithAI()">🔍 Analyser</button>
+                </div>
+
+                <div id="cons-status" class="ai-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConsolidationModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="startConsolidation()">📊 Consolider</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/app.js' %}"></script>
+    <script src="{% static 'js/consolidation.js' %}"></script>
+</body>
+
+</html>
