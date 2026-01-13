@@ -879,6 +879,32 @@ class MainWindow(QMainWindow):
         self.nav_bubbles.clicked.connect(lambda: self._switch_page(2))
         sidebar_layout.addWidget(self.nav_bubbles)
 
+        # ConsBulle nav
+        self.nav_consbulle = QPushButton("🧩  Cons. par Bulle")
+        self.nav_consbulle.setObjectName("nav-item")
+        self.nav_consbulle.setCheckable(True)
+        self.nav_consbulle.setStyleSheet("""
+            QPushButton#nav-item {
+                background: transparent;
+                color: rgba(255,255,255,0.85);
+                border: none;
+                border-radius: 10px;
+                padding: 14px 16px;
+                text-align: left;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton#nav-item:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            QPushButton#nav-item:checked {
+                background: rgba(255,255,255,0.2);
+                color: white;
+            }
+        """)
+        self.nav_consbulle.clicked.connect(lambda: self._switch_page(3))
+        sidebar_layout.addWidget(self.nav_consbulle)
 
         # Settings nav
         self.nav_settings = QPushButton("⚙️  Paramètres")
@@ -904,7 +930,7 @@ class MainWindow(QMainWindow):
                 color: white;
             }
         """)
-        self.nav_settings.clicked.connect(lambda: self._switch_page(3))
+        self.nav_settings.clicked.connect(lambda: self._switch_page(4))
         sidebar_layout.addWidget(self.nav_settings)
 
         sidebar_layout.addStretch()
@@ -938,7 +964,11 @@ class MainWindow(QMainWindow):
         self.bubbles_page = self._create_bubbles_page()
         self.pages.addWidget(self.bubbles_page)
         
-        # Page 4: Settings
+        # Page 4: ConsBulle
+        self.consbulle_page = self._create_consbulle_page()
+        self.pages.addWidget(self.consbulle_page)
+        
+        # Page 5: Settings
         self.settings_page = self._create_settings_page()
         self.pages.addWidget(self.settings_page)
 
@@ -958,7 +988,8 @@ class MainWindow(QMainWindow):
         self.nav_consolidation.setChecked(index == 0)
         self.nav_creator.setChecked(index == 1)
         self.nav_bubbles.setChecked(index == 2)
-        self.nav_settings.setChecked(index == 3)
+        self.nav_consbulle.setChecked(index == 3)
+        self.nav_settings.setChecked(index == 4)
 
     def _create_consolidation_page(self):
         """Create the consolidation page"""
@@ -1124,6 +1155,83 @@ class MainWindow(QMainWindow):
 
     def _open_bubble_dialog(self):
         """Open bubble consolidation dialog"""
+        dialog = BubbleConsolidationDialog(self)
+        dialog.exec()
+
+    def _create_consbulle_page(self):
+        """Create the structured consolidation by bubble page"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(24)
+
+        # Header
+        header_layout = QVBoxLayout()
+        title = QLabel("🧩 Consolidation par Bulle (Structurée)")
+        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #1e293b;")
+        header_layout.addWidget(title)
+        subtitle = QLabel("Assistant étape par étape pour créer une consolidation structurée")
+        subtitle.setStyleSheet("font-size: 14px; color: #64748b;")
+        header_layout.addWidget(subtitle)
+        layout.addLayout(header_layout)
+
+        # Open Dialog Button
+        btn_layout = QHBoxLayout()
+        self.open_consbulle_btn = QPushButton("🧩 Ouvrir l'assistant de consolidation structurée")
+        self.open_consbulle_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f59e0b, stop:1 #d97706);
+                color: white;
+                border: none;
+                padding: 16px 32px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fbbf24, stop:1 #f59e0b);
+            }
+        """)
+        self.open_consbulle_btn.clicked.connect(self._open_consbulle_dialog)
+        btn_layout.addWidget(self.open_consbulle_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+
+        # Info card
+        info_card = QFrame()
+        info_card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 24px;
+            }
+        """)
+        info_layout = QVBoxLayout(info_card)
+        
+        info_title = QLabel("💡 Comment fonctionne l'assistant ?")
+        info_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #d97706; margin-bottom: 12px;")
+        info_layout.addWidget(info_title)
+        
+        steps = [
+            "👤 Étape 1 : Créez les responsables (ex: Jean Dupont, Marie Martin)",
+            "📄 Étape 2 : Ajoutez des sites et chargez les fichiers Excel",
+            "⚙️ Étape 3 : Configurez l'extraction (colonnes E-P, lignes 1-10)",
+            "📊 Étape 4 : Aperçu et génération du fichier consolidé"
+        ]
+        for step in steps:
+            step_label = QLabel(step)
+            step_label.setStyleSheet("font-size: 14px; color: #64748b; padding: 6px 0;")
+            info_layout.addWidget(step_label)
+        
+        layout.addWidget(info_card)
+        layout.addStretch()
+
+        return page
+
+    def _open_consbulle_dialog(self):
+        """Open structured consolidation dialog"""
+        # For now, use the same bubble dialog - can be extended later
         dialog = BubbleConsolidationDialog(self)
         dialog.exec()
 
