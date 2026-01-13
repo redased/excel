@@ -731,9 +731,28 @@ class MainWindow(QMainWindow):
         self.config = WorkbookConfig()
         self.current_sheet_index = 0
         self.project_file = None
+        self._load_app_settings()
         self._setup_ui()
         self._connect_signals()
         self._refresh_sheets()
+
+    def _load_app_settings(self):
+        """Load app settings from file"""
+        import os
+        self.settings_file = os.path.join(os.path.dirname(__file__), '..', 'app_settings.json')
+        self.app_name = "Excel Tools"
+        self.app_subtitle = "BP 2026"
+        self.logo_url = "https://pereire.co/wp-content/uploads/2023/06/Logo.svg"
+        
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    self.app_name = settings.get('app_name', self.app_name)
+                    self.app_subtitle = settings.get('app_subtitle', self.app_subtitle)
+                    self.logo_url = settings.get('logo_url', self.logo_url)
+        except:
+            pass
 
     def _setup_ui(self):
         self.setWindowTitle("📊 Excel Tools - BP 2026")
@@ -761,19 +780,18 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(16, 20, 16, 20)
         sidebar_layout.setSpacing(8)
 
-        # Sidebar header
         header_layout = QHBoxLayout()
         logo = QLabel("📊")
         logo.setStyleSheet("font-size: 28px;")
         header_layout.addWidget(logo)
         
         title_layout = QVBoxLayout()
-        title = QLabel("Excel Tools")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
-        title_layout.addWidget(title)
-        subtitle = QLabel("BP 2026")
-        subtitle.setStyleSheet("font-size: 11px; color: rgba(255,255,255,0.7);")
-        title_layout.addWidget(subtitle)
+        self.sidebar_title = QLabel(self.app_name)
+        self.sidebar_title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
+        title_layout.addWidget(self.sidebar_title)
+        self.sidebar_subtitle = QLabel(self.app_subtitle)
+        self.sidebar_subtitle.setStyleSheet("font-size: 11px; color: rgba(255,255,255,0.7);")
+        title_layout.addWidget(self.sidebar_subtitle)
         header_layout.addLayout(title_layout)
         header_layout.addStretch()
         sidebar_layout.addLayout(header_layout)
@@ -832,6 +850,33 @@ class MainWindow(QMainWindow):
         self.nav_creator.clicked.connect(lambda: self._switch_page(1))
         sidebar_layout.addWidget(self.nav_creator)
 
+        # Settings nav
+        self.nav_settings = QPushButton("⚙️  Paramètres")
+        self.nav_settings.setObjectName("nav-item")
+        self.nav_settings.setCheckable(True)
+        self.nav_settings.setStyleSheet("""
+            QPushButton#nav-item {
+                background: transparent;
+                color: rgba(255,255,255,0.85);
+                border: none;
+                border-radius: 10px;
+                padding: 14px 16px;
+                text-align: left;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton#nav-item:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            QPushButton#nav-item:checked {
+                background: rgba(255,255,255,0.2);
+                color: white;
+            }
+        """)
+        self.nav_settings.clicked.connect(lambda: self._switch_page(2))
+        sidebar_layout.addWidget(self.nav_settings)
+
         sidebar_layout.addStretch()
 
         # Version
@@ -858,6 +903,10 @@ class MainWindow(QMainWindow):
         # Page 2: Excel Creator
         self.creator_page = self._create_creator_page()
         self.pages.addWidget(self.creator_page)
+        
+        # Page 3: Settings
+        self.settings_page = self._create_settings_page()
+        self.pages.addWidget(self.settings_page)
 
         content_layout.addWidget(self.pages)
         main_layout.addWidget(content_area)
@@ -866,11 +915,15 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("✓ Prêt")
+        
+        # Update window title
+        self.setWindowTitle(f"📊 {self.app_name} - {self.app_subtitle}")
 
     def _switch_page(self, index: int):
         self.pages.setCurrentIndex(index)
         self.nav_consolidation.setChecked(index == 0)
         self.nav_creator.setChecked(index == 1)
+        self.nav_settings.setChecked(index == 2)
 
     def _create_consolidation_page(self):
         """Create the consolidation page"""
@@ -943,6 +996,119 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         return page
+
+    def _create_settings_page(self):
+        """Create the settings page"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(24)
+
+        # Header
+        header_layout = QVBoxLayout()
+        title = QLabel("⚙️ Paramètres")
+        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #1e293b;")
+        header_layout.addWidget(title)
+        subtitle = QLabel("Personnalisez l'apparence de l'application")
+        subtitle.setStyleSheet("font-size: 14px; color: #64748b;")
+        header_layout.addWidget(subtitle)
+        layout.addLayout(header_layout)
+
+        # Settings card
+        settings_card = QFrame()
+        settings_card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 24px;
+            }
+        """)
+        settings_layout = QVBoxLayout(settings_card)
+        
+        card_title = QLabel("🏢 Branding")
+        card_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0284c7; margin-bottom: 16px;")
+        settings_layout.addWidget(card_title)
+
+        # App name
+        name_group = QGroupBox("Nom de l'application")
+        name_group.setStyleSheet("QGroupBox { font-weight: bold; color: #1e293b; }")
+        name_layout = QVBoxLayout(name_group)
+        self.settings_app_name = QLineEdit(self.app_name)
+        self.settings_app_name.setPlaceholderText("Nom de l'application...")
+        name_layout.addWidget(self.settings_app_name)
+        settings_layout.addWidget(name_group)
+
+        # App subtitle
+        subtitle_group = QGroupBox("Sous-titre")
+        subtitle_group.setStyleSheet("QGroupBox { font-weight: bold; color: #1e293b; }")
+        subtitle_layout = QVBoxLayout(subtitle_group)
+        self.settings_app_subtitle = QLineEdit(self.app_subtitle)
+        self.settings_app_subtitle.setPlaceholderText("Sous-titre...")
+        subtitle_layout.addWidget(self.settings_app_subtitle)
+        settings_layout.addWidget(subtitle_group)
+
+        # Logo URL
+        logo_group = QGroupBox("URL du logo")
+        logo_group.setStyleSheet("QGroupBox { font-weight: bold; color: #1e293b; }")
+        logo_layout = QVBoxLayout(logo_group)
+        self.settings_logo_url = QLineEdit(self.logo_url)
+        self.settings_logo_url.setPlaceholderText("https://...")
+        logo_layout.addWidget(self.settings_logo_url)
+        logo_hint = QLabel("Formats supportés: SVG, PNG, JPG")
+        logo_hint.setStyleSheet("font-size: 12px; color: #64748b;")
+        logo_layout.addWidget(logo_hint)
+        settings_layout.addWidget(logo_group)
+
+        # Save button
+        save_btn = QPushButton("💾 Sauvegarder les paramètres")
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0ea5e9, stop:1 #0284c7);
+                color: white;
+                border: none;
+                padding: 14px 28px;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38bdf8, stop:1 #0ea5e9);
+            }
+        """)
+        save_btn.clicked.connect(self._save_app_settings)
+        settings_layout.addWidget(save_btn)
+
+        layout.addWidget(settings_card)
+        layout.addStretch()
+
+        return page
+
+    def _save_app_settings(self):
+        """Save app settings to file"""
+        self.app_name = self.settings_app_name.text()
+        self.app_subtitle = self.settings_app_subtitle.text()
+        self.logo_url = self.settings_logo_url.text()
+        
+        settings = {
+            'app_name': self.app_name,
+            'app_subtitle': self.app_subtitle,
+            'logo_url': self.logo_url
+        }
+        
+        try:
+            with open(self.settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+            
+            # Update UI
+            self.sidebar_title.setText(self.app_name)
+            self.sidebar_subtitle.setText(self.app_subtitle)
+            self.setWindowTitle(f"📊 {self.app_name} - {self.app_subtitle}")
+            
+            self.status_bar.showMessage("✓ Paramètres sauvegardés!")
+            QMessageBox.information(self, "Succès", "Les paramètres ont été sauvegardés!")
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la sauvegarde: {e}")
 
     def _create_creator_page(self):
         """Create the Excel Creator page"""
