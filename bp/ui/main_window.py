@@ -23,6 +23,8 @@ from core.models import (
 from core.excel_generator import ExcelGenerator
 from ui.ai_dialog import AIPromptDialog
 from ui.consolidation_dialog import ConsolidationDialog
+from ui.bubble_consolidation_dialog import BubbleConsolidationDialog
+
 
 
 class ColorButton(QPushButton):
@@ -850,6 +852,34 @@ class MainWindow(QMainWindow):
         self.nav_creator.clicked.connect(lambda: self._switch_page(1))
         sidebar_layout.addWidget(self.nav_creator)
 
+        # Bubbles nav
+        self.nav_bubbles = QPushButton("🔮  Bulles")
+        self.nav_bubbles.setObjectName("nav-item")
+        self.nav_bubbles.setCheckable(True)
+        self.nav_bubbles.setStyleSheet("""
+            QPushButton#nav-item {
+                background: transparent;
+                color: rgba(255,255,255,0.85);
+                border: none;
+                border-radius: 10px;
+                padding: 14px 16px;
+                text-align: left;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton#nav-item:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            QPushButton#nav-item:checked {
+                background: rgba(255,255,255,0.2);
+                color: white;
+            }
+        """)
+        self.nav_bubbles.clicked.connect(lambda: self._switch_page(2))
+        sidebar_layout.addWidget(self.nav_bubbles)
+
+
         # Settings nav
         self.nav_settings = QPushButton("⚙️  Paramètres")
         self.nav_settings.setObjectName("nav-item")
@@ -874,7 +904,7 @@ class MainWindow(QMainWindow):
                 color: white;
             }
         """)
-        self.nav_settings.clicked.connect(lambda: self._switch_page(2))
+        self.nav_settings.clicked.connect(lambda: self._switch_page(3))
         sidebar_layout.addWidget(self.nav_settings)
 
         sidebar_layout.addStretch()
@@ -904,7 +934,11 @@ class MainWindow(QMainWindow):
         self.creator_page = self._create_creator_page()
         self.pages.addWidget(self.creator_page)
         
-        # Page 3: Settings
+        # Page 3: Bubbles
+        self.bubbles_page = self._create_bubbles_page()
+        self.pages.addWidget(self.bubbles_page)
+        
+        # Page 4: Settings
         self.settings_page = self._create_settings_page()
         self.pages.addWidget(self.settings_page)
 
@@ -923,7 +957,8 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(index)
         self.nav_consolidation.setChecked(index == 0)
         self.nav_creator.setChecked(index == 1)
-        self.nav_settings.setChecked(index == 2)
+        self.nav_bubbles.setChecked(index == 2)
+        self.nav_settings.setChecked(index == 3)
 
     def _create_consolidation_page(self):
         """Create the consolidation page"""
@@ -996,6 +1031,101 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         return page
+
+    def _create_bubbles_page(self):
+        """Create the bubbles consolidation page"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(24)
+
+        # Header
+        header_layout = QVBoxLayout()
+        title = QLabel("🔮 Consolidation par Bulles")
+        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #1e293b;")
+        header_layout.addWidget(title)
+        subtitle = QLabel("Visualisez et consolidez vos fichiers Excel de manière interactive avec des bulles")
+        subtitle.setStyleSheet("font-size: 14px; color: #64748b;")
+        header_layout.addWidget(subtitle)
+        layout.addLayout(header_layout)
+
+        # Open Bubble Dialog Button
+        btn_layout = QHBoxLayout()
+        self.open_bubbles_btn = QPushButton("🔮 Ouvrir l'outil de consolidation par bulles")
+        self.open_bubbles_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #8b5cf6, stop:1 #7c3aed);
+                color: white;
+                border: none;
+                padding: 16px 32px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #a78bfa, stop:1 #8b5cf6);
+            }
+        """)
+        self.open_bubbles_btn.clicked.connect(self._open_bubble_dialog)
+        btn_layout.addWidget(self.open_bubbles_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+
+        # Info card
+        info_card = QFrame()
+        info_card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 24px;
+            }
+        """)
+        info_layout = QVBoxLayout(info_card)
+        
+        info_title = QLabel("💡 Comment fonctionne la consolidation par bulles ?")
+        info_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #7c3aed; margin-bottom: 12px;")
+        info_layout.addWidget(info_title)
+        
+        steps = [
+            "1. Sélectionnez un dossier contenant les sous-dossiers des responsables",
+            "2. Chaque responsable contient des fichiers Excel (un par site)",
+            "3. Les fichiers sont visualisés sous forme de bulles interactives",
+            "4. Glissez-déposez les bulles vers la zone de conception",
+            "5. Générez le fichier Excel consolidé"
+        ]
+        for step in steps:
+            step_label = QLabel(step)
+            step_label.setStyleSheet("font-size: 14px; color: #64748b; padding: 4px 0;")
+            info_layout.addWidget(step_label)
+        
+        # Structure example
+        structure_label = QLabel("\n📁 Structure attendue:")
+        structure_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #1e293b; margin-top: 12px;")
+        info_layout.addWidget(structure_label)
+        
+        structure_example = QLabel("""
+    Responsables/
+    ├── Jean_Dupont/
+    │   ├── Site_Paris.xlsx
+    │   ├── Site_Lyon.xlsx
+    │   └── Site_Marseille.xlsx
+    └── Marie_Martin/
+        ├── Site_Nice.xlsx
+        └── Site_Lille.xlsx
+        """)
+        structure_example.setStyleSheet("font-family: monospace; font-size: 12px; color: #64748b; background: #f8fafc; padding: 12px; border-radius: 8px;")
+        info_layout.addWidget(structure_example)
+        
+        layout.addWidget(info_card)
+        layout.addStretch()
+
+        return page
+
+    def _open_bubble_dialog(self):
+        """Open bubble consolidation dialog"""
+        dialog = BubbleConsolidationDialog(self)
+        dialog.exec()
 
     def _create_settings_page(self):
         """Create the settings page"""

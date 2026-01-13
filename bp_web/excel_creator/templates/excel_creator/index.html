@@ -8,6 +8,7 @@
     <meta name="description" content="Créez et consolidez des fichiers Excel pour le Budget Prévisionnel 2026">
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/bubbles.css' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -27,6 +28,10 @@
                 <button class="nav-item active" data-page="consolidation">
                     <span class="nav-icon">📁</span>
                     <span class="nav-text">Consolidation</span>
+                </button>
+                <button class="nav-item" data-page="bubbles">
+                    <span class="nav-icon">🔮</span>
+                    <span class="nav-text">Bulles</span>
                 </button>
                 <button class="nav-item" data-page="creator">
                     <span class="nav-icon">📄</span>
@@ -429,6 +434,78 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ======================= -->
+            <!-- BUBBLES PAGE -->
+            <!-- ======================= -->
+            <section id="page-bubbles" class="page">
+                <div class="page-header">
+                    <h2>🔮 Consolidation par Bulles</h2>
+                    <p>Visualisez et consolidez vos fichiers Excel de manière interactive</p>
+                </div>
+
+                <div class="bubbles-container">
+                    <!-- Left Panel: Bubble Explorer -->
+                    <div class="bubbles-explorer">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>📂 Charger un dossier</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="folder-upload-zone" id="folder-drop-zone">
+                                    <input type="file" id="bubble-files" multiple accept=".xlsx,.xls" webkitdirectory
+                                        directory>
+                                    <div class="upload-placeholder">
+                                        <span class="upload-icon">📁</span>
+                                        <p>Glissez un dossier ou sélectionnez des fichiers</p>
+                                        <span>Structure: Responsable / Sites / Feuilles</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 16px; flex: 1;">
+                            <div class="card-header">
+                                <h3>🔮 Hiérarchie des Bulles</h3>
+                            </div>
+                            <div class="card-body" style="padding: 0;">
+                                <div class="bubble-tree" id="bubble-tree">
+                                    <div class="bubble-empty-state">
+                                        <span>📂</span>
+                                        <p>Chargez un dossier pour voir les bulles</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Drop Zone -->
+                    <div class="bubbles-design">
+                        <div class="card" style="height: 100%;">
+                            <div class="card-header">
+                                <h3>📊 Zone de Conception</h3>
+                                <button class="btn btn-sm btn-secondary" onclick="clearDesignZone()">🗑️ Vider</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="design-drop-zone" id="design-drop-zone">
+                                    <div class="drop-placeholder" id="drop-placeholder">
+                                        <span>🎯</span>
+                                        <p>Glissez les bulles ici pour construire votre fichier consolidé</p>
+                                    </div>
+                                    <div class="dropped-items" id="dropped-items"></div>
+                                </div>
+
+                                <div class="design-actions" style="margin-top: 16px;">
+                                    <button class="btn btn-primary" onclick="generateBubbleExcel()"
+                                        id="btn-generate-bubbles" disabled>
+                                        📥 Générer le fichier Excel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -569,6 +646,7 @@ Créer un tableau budget BP 2026 avec:
             fileInput.dispatchEvent(new Event('change'));
         });
     </script>
+    <script src="{% static 'js/bubbles.js' %}"></script>
 </body>
 
 </html>
