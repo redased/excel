@@ -13,7 +13,7 @@ Une suite d'outils puissants pour créer et consolider des fichiers Excel, dispo
 - Sélection des feuilles à inclure par fichier
 - Configuration des colonnes et lignes à extraire
 - Groupement par branche, responsable ou centre de coût
-- Analyse IA optionnelle avec Z.ai
+- Analyse IA optionnelle avec Z.ai 5b8e0330b2144624bf191c06b6cdc5a4.bae7eYG2RjNdx6jL
 
 ### 🔮 Consolidation par Bulles
 - Visualisation interactive des fichiers sous forme de bulles
