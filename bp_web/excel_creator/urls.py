@@ -18,4 +18,6 @@ urlpatterns = [
     # Bubble Consolidation
     path('api/parse-bubble-files/', views.ParseBubbleFilesAPIView.as_view(), name='parse_bubble_files'),
     path('api/generate-bubble-excel/', views.GenerateBubbleExcelAPIView.as_view(), name='generate_bubble_excel'),
+    # Structured ConsBulle
+    path('api/generate-consbulle/', views.GenerateConsBulleAPIView.as_view(), name='generate_consbulle'),
 ]

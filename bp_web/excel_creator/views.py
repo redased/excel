@@ -437,3 +437,146 @@ class GenerateBubbleExcelAPIView(View):
                 'error': str(e)
             }, status=500)
 
+
+@method_decorator(csrf_exempt, name='dispatch')
+class GenerateConsBulleAPIView(View):
+    """API endpoint to generate structured consolidation from bubble config"""
+    
+    def post(self, request):
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter, column_index_from_string
+            
+            config_str = request.POST.get('config', '{}')
+            config_data = json.loads(config_str)
+            files = request.FILES.getlist('files')
+            file_mappings = request.POST.getlist('file_mapping')
+            
+            # Parse file mappings
+            file_map = {}
+            for mapping_str in file_mappings:
+                mapping = json.loads(mapping_str)
+                file_map[mapping['filename']] = mapping
+            
+            # Match files to mappings
+            uploaded_files = {}
+            for f in files:
+                uploaded_files[f.name] = f
+            
+            # Get extraction config
+            extract_config = config_data.get('config', {})
+            sheet_name = extract_config.get('sheetName', 'Branche')
+            col_start = extract_config.get('colStart', 'E').upper()
+            col_end = extract_config.get('colEnd', 'P').upper()
+            row_start = int(extract_config.get('rowStart', 1))
+            row_end = int(extract_config.get('rowEnd', 10))
+            
+            # Convert column letters to indices
+            col_start_idx = column_index_from_string(col_start)
+            col_end_idx = column_index_from_string(col_end)
+            
+            # Create output workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Consolidation"
+            
+            # Styles
+            resp_fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
+            site_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            
+            current_row = 1
+            
+            # Process each responsable
+            for resp in config_data.get('responsables', []):
+                # Responsable header
+                ws.merge_cells(start_row=current_row, start_column=1, 
+                              end_row=current_row, end_column=col_end_idx - col_start_idx + 2)
+                cell = ws.cell(row=current_row, column=1, value=f"👤 Responsable: {resp.get('name', '')}")
+                cell.fill = resp_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+                current_row += 2
+                
+                # Process each site
+                for site in resp.get('sites', []):
+                    filename = site.get('filename')
+                    
+                    # Site header
+                    ws.cell(row=current_row, column=1, value=f"📄 Site: {site.get('name', '')}")
+                    ws.cell(row=current_row, column=1).font = Font(bold=True, size=11, color="059669")
+                    current_row += 1
+                    
+                    if filename and filename in uploaded_files:
+                        try:
+                            # Load source workbook
+                            src_file = uploaded_files[filename]
+                            src_wb = load_workbook(src_file, data_only=True)
+                            
+                            # Try to get specified sheet
+                            if sheet_name in src_wb.sheetnames:
+                                src_ws = src_wb[sheet_name]
+                            else:
+                                # Use first sheet
+                                src_ws = src_wb.active
+                            
+                            # Extract specified range
+                            for src_row in range(row_start, min(row_end + 1, src_ws.max_row + 1)):
+                                dest_col = 1
+                                for src_col in range(col_start_idx, min(col_end_idx + 1, src_ws.max_column + 1)):
+                                    src_cell = src_ws.cell(row=src_row, column=src_col)
+                                    dest_cell = ws.cell(row=current_row, column=dest_col, value=src_cell.value)
+                                    dest_cell.border = border
+                                    
+                                    # Copy basic formatting if first row (headers)
+                                    if src_row == row_start and src_cell.value:
+                                        dest_cell.font = Font(bold=True)
+                                    
+                                    dest_col += 1
+                                current_row += 1
+                            
+                            src_wb.close()
+                            
+                        except Exception as e:
+                            ws.cell(row=current_row, column=1, value=f"Erreur: {str(e)}")
+                            current_row += 1
+                    else:
+                        ws.cell(row=current_row, column=1, value="(Fichier non chargé)")
+                        ws.cell(row=current_row, column=1).font = Font(italic=True, color="94A3B8")
+                        current_row += 1
+                    
+                    current_row += 1  # Space between sites
+                
+                current_row += 1  # Space between responsables
+            
+            # Auto-fit columns
+            for col in range(1, col_end_idx - col_start_idx + 3):
+                ws.column_dimensions[get_column_letter(col)].width = 15
+            
+            # Save
+            temp_dir = Path(settings.MEDIA_ROOT) / 'temp'
+            temp_dir.mkdir(exist_ok=True)
+            output_path = temp_dir / 'Consolidation_Structuree.xlsx'
+            wb.save(output_path)
+            wb.close()
+            
+            return FileResponse(
+                open(output_path, 'rb'),
+                as_attachment=True,
+                filename='Consolidation_Structuree.xlsx'
+            )
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)

@@ -9,6 +9,7 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="stylesheet" href="{% static 'css/bubbles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/consbulle.css' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -32,6 +33,10 @@
                 <button class="nav-item" data-page="bubbles">
                     <span class="nav-icon">🔮</span>
                     <span class="nav-text">Bulles</span>
+                </button>
+                <button class="nav-item" data-page="consbulle">
+                    <span class="nav-icon">🧩</span>
+                    <span class="nav-text">Cons. par Bulle</span>
                 </button>
                 <button class="nav-item" data-page="creator">
                     <span class="nav-icon">📄</span>
@@ -506,6 +511,107 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ======================= -->
+            <!-- CONSOLIDATION PAR BULLE PAGE -->
+            <!-- ======================= -->
+            <section id="page-consbulle" class="page">
+                <div class="page-header">
+                    <h2>🧩 Consolidation par Bulle</h2>
+                    <p>Créez une consolidation structurée étape par étape</p>
+                </div>
+
+                <div class="consbulle-container">
+                    <!-- Step 1: Responsables -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>👤 Étape 1: Responsables</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addResponsable()">+ Ajouter</button>
+                        </div>
+                        <div class="card-body">
+                            <div id="responsables-list" class="consbulle-items">
+                                <div class="empty-state">
+                                    <span>👤</span>
+                                    <p>Cliquez sur "Ajouter" pour créer un responsable</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Sites -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>📄 Étape 2: Sites</h3>
+                            <button class="btn btn-sm btn-primary" onclick="addSite()" id="btn-add-site" disabled>+
+                                Ajouter Site</button>
+                        </div>
+                        <div class="card-body">
+                            <div id="sites-list" class="consbulle-items">
+                                <div class="empty-state">
+                                    <span>📄</span>
+                                    <p>Sélectionnez un responsable puis ajoutez des sites</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Configuration -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>⚙️ Étape 3: Configuration d'extraction</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="config-grid">
+                                <div class="form-group">
+                                    <label>Feuille par défaut</label>
+                                    <input type="text" id="cb-sheet-name" value="Branche"
+                                        placeholder="Nom de la feuille...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Colonnes (de - à)</label>
+                                    <div class="input-row">
+                                        <input type="text" id="cb-col-start" value="E" style="width:60px;"
+                                            placeholder="E">
+                                        <span>à</span>
+                                        <input type="text" id="cb-col-end" value="P" style="width:60px;"
+                                            placeholder="P">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Lignes (de - à)</label>
+                                    <div class="input-row">
+                                        <input type="number" id="cb-row-start" value="1" min="1" style="width:70px;">
+                                        <span>à</span>
+                                        <input type="number" id="cb-row-end" value="10" min="1" style="width:70px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Preview & Generate -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>📊 Étape 4: Aperçu & Génération</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="consbulle-preview" class="consbulle-preview">
+                                <div class="empty-state">
+                                    <span>📊</span>
+                                    <p>L'aperçu de la consolidation apparaîtra ici</p>
+                                </div>
+                            </div>
+                            <div style="margin-top: 16px; display: flex; gap: 12px;">
+                                <button class="btn btn-secondary" onclick="previewConsBulle()">👁️ Aperçu</button>
+                                <button class="btn btn-primary" onclick="generateConsBulle()"
+                                    id="btn-generate-consbulle">
+                                    📥 Générer Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -647,6 +753,7 @@ Créer un tableau budget BP 2026 avec:
         });
     </script>
     <script src="{% static 'js/bubbles.js' %}"></script>
+    <script src="{% static 'js/consbulle.js' %}"></script>
 </body>
 
 </html>
