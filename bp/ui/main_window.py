@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QSpinBox, QDoubleSpinBox,
     QLineEdit, QCheckBox, QComboBox, QColorDialog, QFileDialog,
     QMessageBox, QStatusBar, QToolBar, QFrame, QGroupBox, QFormLayout,
-    QScrollArea, QGridLayout, QApplication
+    QScrollArea, QGridLayout, QApplication, QStackedWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QIcon, QColor, QFont
@@ -722,8 +722,9 @@ class PreviewWidget(QWidget):
                         item.setText("🔗")
 
 
+
 class MainWindow(QMainWindow):
-    """Main application window"""
+    """Main application window with sidebar navigation"""
 
     def __init__(self):
         super().__init__()
@@ -735,37 +736,225 @@ class MainWindow(QMainWindow):
         self._refresh_sheets()
 
     def _setup_ui(self):
-        self.setWindowTitle("📊 Création de Fichier Excel Vierge - BP 2026")
-        self.setMinimumSize(1200, 800)
+        self.setWindowTitle("📊 Excel Tools - BP 2026")
+        self.setMinimumSize(1300, 850)
         self.setStyleSheet(DARK_THEME)
 
         # Central widget
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
+        main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Toolbar
-        self._create_toolbar()
+        # === SIDEBAR ===
+        sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(220)
+        sidebar.setStyleSheet("""
+            QWidget#sidebar {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0284c7, stop:1 #0369a1);
+            }
+        """)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(16, 20, 16, 20)
+        sidebar_layout.setSpacing(8)
+
+        # Sidebar header
+        header_layout = QHBoxLayout()
+        logo = QLabel("📊")
+        logo.setStyleSheet("font-size: 28px;")
+        header_layout.addWidget(logo)
+        
+        title_layout = QVBoxLayout()
+        title = QLabel("Excel Tools")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: white;")
+        title_layout.addWidget(title)
+        subtitle = QLabel("BP 2026")
+        subtitle.setStyleSheet("font-size: 11px; color: rgba(255,255,255,0.7);")
+        title_layout.addWidget(subtitle)
+        header_layout.addLayout(title_layout)
+        header_layout.addStretch()
+        sidebar_layout.addLayout(header_layout)
+        
+        sidebar_layout.addSpacing(30)
+
+        # Navigation buttons
+        self.nav_consolidation = QPushButton("📁  Consolidation")
+        self.nav_consolidation.setObjectName("nav-item")
+        self.nav_consolidation.setCheckable(True)
+        self.nav_consolidation.setChecked(True)
+        self.nav_consolidation.setStyleSheet("""
+            QPushButton#nav-item {
+                background: rgba(255,255,255,0.2);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 14px 16px;
+                text-align: left;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton#nav-item:hover {
+                background: rgba(255,255,255,0.15);
+            }
+            QPushButton#nav-item:checked {
+                background: rgba(255,255,255,0.25);
+            }
+        """)
+        self.nav_consolidation.clicked.connect(lambda: self._switch_page(0))
+        sidebar_layout.addWidget(self.nav_consolidation)
+
+        self.nav_creator = QPushButton("📄  Excel Creator")
+        self.nav_creator.setObjectName("nav-item")
+        self.nav_creator.setCheckable(True)
+        self.nav_creator.setStyleSheet("""
+            QPushButton#nav-item {
+                background: transparent;
+                color: rgba(255,255,255,0.85);
+                border: none;
+                border-radius: 10px;
+                padding: 14px 16px;
+                text-align: left;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            QPushButton#nav-item:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            QPushButton#nav-item:checked {
+                background: rgba(255,255,255,0.2);
+                color: white;
+            }
+        """)
+        self.nav_creator.clicked.connect(lambda: self._switch_page(1))
+        sidebar_layout.addWidget(self.nav_creator)
+
+        sidebar_layout.addStretch()
+
+        # Version
+        version = QLabel("v1.0")
+        version.setStyleSheet("color: rgba(255,255,255,0.5); font-size: 11px;")
+        version.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sidebar_layout.addWidget(version)
+
+        main_layout.addWidget(sidebar)
+
+        # === MAIN CONTENT AREA ===
+        content_area = QWidget()
+        content_area.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f0f9ff, stop:0.5 #e0f2fe, stop:1 #f0f9ff);")
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Stacked widget for pages
+        self.pages = QStackedWidget()
+        
+        # Page 1: Consolidation
+        self.consolidation_page = self._create_consolidation_page()
+        self.pages.addWidget(self.consolidation_page)
+        
+        # Page 2: Excel Creator
+        self.creator_page = self._create_creator_page()
+        self.pages.addWidget(self.creator_page)
+
+        content_layout.addWidget(self.pages)
+        main_layout.addWidget(content_area)
+
+        # Status bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("✓ Prêt")
+
+    def _switch_page(self, index: int):
+        self.pages.setCurrentIndex(index)
+        self.nav_consolidation.setChecked(index == 0)
+        self.nav_creator.setChecked(index == 1)
+
+    def _create_consolidation_page(self):
+        """Create the consolidation page"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(24)
 
         # Header
-        header = QFrame()
-        header.setStyleSheet(HEADER_STYLE)
-        header_layout = QHBoxLayout(header)
-        
-        title_label = QLabel("📊 Création de Fichier Excel Vierge")
-        title_label.setStyleSheet("font-size: 24px; font-weight: bold; color: white; background: transparent;")
-        header_layout.addWidget(title_label)
-        
-        subtitle_label = QLabel("Budget Prévisionnel 2026")
-        subtitle_label.setStyleSheet("font-size: 14px; color: rgba(255,255,255,0.8); background: transparent;")
-        header_layout.addWidget(subtitle_label)
-        header_layout.addStretch()
+        header_layout = QVBoxLayout()
+        title = QLabel("📁 Consolidation de Fichiers Excel")
+        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #1e293b;")
+        header_layout.addWidget(title)
+        subtitle = QLabel("Combinez plusieurs fichiers Excel en un seul fichier de synthèse")
+        subtitle.setStyleSheet("font-size: 14px; color: #64748b;")
+        header_layout.addWidget(subtitle)
+        layout.addLayout(header_layout)
 
-        main_layout.addWidget(header)
+        # Open Consolidation Dialog Button
+        btn_layout = QHBoxLayout()
+        self.open_consolidation_btn = QPushButton("📂 Ouvrir l'outil de consolidation")
+        self.open_consolidation_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0ea5e9, stop:1 #0284c7);
+                color: white;
+                border: none;
+                padding: 16px 32px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38bdf8, stop:1 #0ea5e9);
+            }
+        """)
+        self.open_consolidation_btn.clicked.connect(self._open_consolidation_dialog)
+        btn_layout.addWidget(self.open_consolidation_btn)
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
 
-        # Content splitter
+        # Info card
+        info_card = QFrame()
+        info_card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 24px;
+            }
+        """)
+        info_layout = QVBoxLayout(info_card)
+        
+        info_title = QLabel("💡 Comment utiliser la consolidation ?")
+        info_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0284c7; margin-bottom: 12px;")
+        info_layout.addWidget(info_title)
+        
+        steps = [
+            "1. Cliquez sur le bouton ci-dessus pour ouvrir l'outil de consolidation",
+            "2. Ajoutez les fichiers Excel à consolider",
+            "3. Sélectionnez les feuilles à inclure pour chaque fichier",
+            "4. Configurez les colonnes et lignes à extraire",
+            "5. Lancez la consolidation et téléchargez le résultat"
+        ]
+        for step in steps:
+            step_label = QLabel(step)
+            step_label.setStyleSheet("font-size: 14px; color: #64748b; padding: 4px 0;")
+            info_layout.addWidget(step_label)
+        
+        layout.addWidget(info_card)
+        layout.addStretch()
+
+        return page
+
+    def _create_creator_page(self):
+        """Create the Excel Creator page"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Toolbar
+        self._create_toolbar_widget(layout)
+
+        # Content area
         content = QWidget()
         content_layout = QHBoxLayout(content)
         content_layout.setContentsMargins(15, 15, 15, 15)
@@ -781,6 +970,7 @@ class MainWindow(QMainWindow):
         # Center panel - Configuration
         center_panel = QFrame()
         center_panel.setObjectName("panel")
+        center_panel.setStyleSheet("QFrame#panel { background: white; border: 1px solid #e2e8f0; border-radius: 16px; }")
         center_layout = QVBoxLayout(center_panel)
         center_layout.setContentsMargins(15, 15, 15, 15)
 
@@ -817,51 +1007,62 @@ class MainWindow(QMainWindow):
 
         splitter.setSizes([200, 600, 300])
         content_layout.addWidget(splitter)
-        main_layout.addWidget(content)
+        layout.addWidget(content)
 
-        # Status bar
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("✓ Prêt")
+        return page
+
+    def _create_toolbar_widget(self, parent_layout):
+        """Create toolbar for Excel Creator page"""
+        from PyQt6.QtWidgets import QStackedWidget
+        
+        toolbar = QFrame()
+        toolbar.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-bottom: 1px solid #e2e8f0;
+                padding: 12px 20px;
+            }
+        """)
+        toolbar_layout = QHBoxLayout(toolbar)
+        toolbar_layout.setContentsMargins(20, 12, 20, 12)
+
+        # Page title
+        title = QLabel("📄 Excel Creator")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1e293b;")
+        toolbar_layout.addWidget(title)
+        toolbar_layout.addStretch()
+
+        # Buttons
+        new_btn = QPushButton("📄 Nouveau")
+        new_btn.setObjectName("secondary")
+        new_btn.clicked.connect(self._new_project)
+        toolbar_layout.addWidget(new_btn)
+
+        open_btn = QPushButton("📂 Ouvrir")
+        open_btn.setObjectName("secondary")
+        open_btn.clicked.connect(self._open_project)
+        toolbar_layout.addWidget(open_btn)
+
+        save_btn = QPushButton("💾 Sauvegarder")
+        save_btn.setObjectName("secondary")
+        save_btn.clicked.connect(self._save_project)
+        toolbar_layout.addWidget(save_btn)
+
+        ai_btn = QPushButton("🤖 IA")
+        ai_btn.setObjectName("ai-button")
+        ai_btn.clicked.connect(self._open_ai_dialog)
+        toolbar_layout.addWidget(ai_btn)
+
+        generate_btn = QPushButton("📊 Générer Excel")
+        generate_btn.clicked.connect(self._generate_excel)
+        toolbar_layout.addWidget(generate_btn)
+
+        parent_layout.addWidget(toolbar)
 
     def _create_toolbar(self):
-        toolbar = QToolBar()
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        # Kept for compatibility but not used with new layout
+        pass
 
-        # New project
-        new_action = QAction("📄 Nouveau", self)
-        new_action.triggered.connect(self._new_project)
-        toolbar.addAction(new_action)
-
-        # Open project
-        open_action = QAction("📂 Ouvrir", self)
-        open_action.triggered.connect(self._open_project)
-        toolbar.addAction(open_action)
-
-        # Save project
-        save_action = QAction("💾 Sauvegarder", self)
-        save_action.triggered.connect(self._save_project)
-        toolbar.addAction(save_action)
-
-        toolbar.addSeparator()
-
-        # AI Generation
-        ai_action = QAction("🤖 IA", self)
-        ai_action.triggered.connect(self._open_ai_dialog)
-        toolbar.addAction(ai_action)
-
-        # Consolidation
-        consolidation_action = QAction("📁 Consolidation", self)
-        consolidation_action.triggered.connect(self._open_consolidation_dialog)
-        toolbar.addAction(consolidation_action)
-
-        toolbar.addSeparator()
-
-        # Generate Excel
-        generate_action = QAction("📊 Générer Excel", self)
-        generate_action.triggered.connect(self._generate_excel)
-        toolbar.addAction(generate_action)
 
     def _connect_signals(self):
         self.sheet_list.sheetSelected.connect(self._on_sheet_selected)
