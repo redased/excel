@@ -14,7 +14,7 @@ Une suite d'outils puissants pour créer et consolider des fichiers Excel, dispo
 - Configuration des colonnes et lignes à extraire
 - Groupement par branche, responsable ou centre de coût
 - Analyse IA optionnelle avec Z.ai
-
+5b8e0330b2144624bf191c06b6cdc5a4.bae7eYG2RjNdx6jL
 ### 📄 Excel Creator
 - Créez des fichiers Excel vierges avec structure personnalisée
 - Configuration des colonnes, lignes et cellules
