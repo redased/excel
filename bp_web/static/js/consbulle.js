@@ -33,6 +33,75 @@ function initConsBulle() {
     renderSites();
     renderSheets();
     initFolderDropZone();
+    updateModeOptions(); // Initialize mode options
+}
+
+// ============================================
+// MODE OPTIONS MANAGEMENT
+// ============================================
+
+function updateModeOptions() {
+    const mode = document.getElementById('cb-mode')?.value || 'simple';
+
+    // Hide all options panels
+    document.querySelectorAll('.mode-options').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    // Show relevant options panel
+    const optionsPanel = document.getElementById(`options-${mode}`);
+    if (optionsPanel) {
+        optionsPanel.style.display = 'block';
+    }
+}
+
+function getModeOptions() {
+    const mode = document.getElementById('cb-mode')?.value || 'simple';
+    const options = { mode };
+
+    // Collect statistics options
+    if (mode === 'statistics' || mode === 'complete') {
+        options.stats = {
+            sum: document.querySelector('[name="stat-sum"]')?.checked || false,
+            avg: document.querySelector('[name="stat-avg"]')?.checked || false,
+            min: document.querySelector('[name="stat-min"]')?.checked || false,
+            max: document.querySelector('[name="stat-max"]')?.checked || false,
+            count: document.querySelector('[name="stat-count"]')?.checked || false,
+            stdev: document.querySelector('[name="stat-stdev"]')?.checked || false
+        };
+    }
+
+    // Collect synthesis options
+    if (mode === 'synthesis' || mode === 'complete') {
+        options.synthesis = {
+            recap: document.querySelector('[name="synth-recap"]')?.checked || false,
+            compare: document.querySelector('[name="synth-compare"]')?.checked || false,
+            diff: document.querySelector('[name="synth-diff"]')?.checked || false,
+            rank: document.querySelector('[name="synth-rank"]')?.checked || false
+        };
+    }
+
+    // Collect graph options
+    if (mode === 'graphs' || mode === 'complete') {
+        options.charts = {
+            bar: document.querySelector('[name="chart-bar"]')?.checked || false,
+            line: document.querySelector('[name="chart-line"]')?.checked || false,
+            pie: document.querySelector('[name="chart-pie"]')?.checked || false,
+            area: document.querySelector('[name="chart-area"]')?.checked || false
+        };
+    }
+
+    // Complete mode options
+    if (mode === 'complete') {
+        options.complete = {
+            dashboard: document.querySelector('[name="complete-dashboard"]')?.checked || false,
+            synthesis: document.querySelector('[name="complete-synthesis"]')?.checked || false,
+            stats: document.querySelector('[name="complete-stats"]')?.checked || false,
+            charts: document.querySelector('[name="complete-charts"]')?.checked || false
+        };
+    }
+
+    return options;
 }
 
 // ============================================

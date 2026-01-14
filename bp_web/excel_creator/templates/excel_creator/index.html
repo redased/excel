@@ -693,7 +693,7 @@
                             <div class="form-group" style="margin-bottom: 16px;">
                                 <label style="font-weight: 500; margin-bottom: 6px; display: block;">Mode de
                                     consolidation</label>
-                                <select id="cb-mode"
+                                <select id="cb-mode" onchange="updateModeOptions()"
                                     style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
                                     <option value="simple">📋 Simple (Empilage) - Tableaux un en dessous de l'autre
                                     </option>
@@ -703,6 +703,100 @@
                                     <option value="complete">🎯 Complet - Tout inclus (Synthèse + Stats + Graphiques)
                                     </option>
                                 </select>
+                            </div>
+
+                            <!-- Dynamic Mode Options -->
+                            <div id="mode-options-container" style="margin-bottom: 16px;">
+                                <!-- Options pour Statistiques -->
+                                <div id="options-statistics" class="mode-options"
+                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <p style="font-weight: 600; margin-bottom: 12px;">📈 Options Statistiques</p>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-sum" checked> ∑ Somme
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-avg" checked> x̄ Moyenne
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-min" checked> ↓ Min
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-max" checked> ↑ Max
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-count"> # Nombre
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="stat-stdev"> σ Écart-type
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Options pour Synthèse -->
+                                <div id="options-synthesis" class="mode-options"
+                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <p style="font-weight: 600; margin-bottom: 12px;">📊 Options Synthèse</p>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="synth-recap" checked> 📋 Récapitulatif
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="synth-compare" checked> ⚖️ Comparaison
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="synth-diff"> ± Différences
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="synth-rank"> 🏆 Classement
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Options pour Graphiques -->
+                                <div id="options-graphs" class="mode-options"
+                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <p style="font-weight: 600; margin-bottom: 12px;">📉 Types de Graphiques</p>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="chart-bar" checked> 📊 Barres
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="chart-line" checked> 📈 Lignes
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="chart-pie"> 🥧 Camembert
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="chart-area"> 📐 Aires
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Options pour Complet -->
+                                <div id="options-complete" class="mode-options"
+                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <p style="font-weight: 600; margin-bottom: 12px;">🎯 Mode Complet - Toutes les
+                                        options</p>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="complete-dashboard" checked> 🎯 Dashboard
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="complete-synthesis" checked> 📊 Synthèse
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="complete-stats" checked> 📈 Statistiques
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                            <input type="checkbox" name="complete-charts" checked> 📉 Graphiques
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Preview -->
