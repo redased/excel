@@ -3,6 +3,7 @@ URL patterns for excel_creator app
 """
 from django.urls import path
 from . import views
+from . import consbulle_api
 
 app_name = 'excel_creator'
 
@@ -18,6 +19,28 @@ urlpatterns = [
     # Bubble Consolidation
     path('api/parse-bubble-files/', views.ParseBubbleFilesAPIView.as_view(), name='parse_bubble_files'),
     path('api/generate-bubble-excel/', views.GenerateBubbleExcelAPIView.as_view(), name='generate_bubble_excel'),
-    # Structured ConsBulle
+    # Structured ConsBulle (old)
     path('api/generate-consbulle/', views.GenerateConsBulleAPIView.as_view(), name='generate_consbulle'),
+    
+    # ============================================
+    # ConsBulle V2 APIs with SQLite persistence
+    # ============================================
+    
+    # Config CRUD
+    path('api/consbulle/configs/', consbulle_api.ConsolidationConfigListAPIView.as_view(), name='consbulle_configs'),
+    path('api/consbulle/configs/<int:config_id>/', consbulle_api.ConsolidationConfigDetailAPIView.as_view(), name='consbulle_config_detail'),
+    
+    # Responsable CRUD
+    path('api/consbulle/configs/<int:config_id>/responsables/', consbulle_api.ResponsableAPIView.as_view(), name='consbulle_responsables'),
+    path('api/consbulle/configs/<int:config_id>/responsables/<int:resp_id>/', consbulle_api.ResponsableAPIView.as_view(), name='consbulle_responsable_detail'),
+    
+    # Site CRUD
+    path('api/consbulle/responsables/<int:resp_id>/sites/', consbulle_api.SiteAPIView.as_view(), name='consbulle_sites'),
+    path('api/consbulle/responsables/<int:resp_id>/sites/<int:site_id>/', consbulle_api.SiteAPIView.as_view(), name='consbulle_site_detail'),
+    
+    # Parse Excel sheets
+    path('api/consbulle/parse-sheets/', consbulle_api.ParseExcelSheetsAPIView.as_view(), name='consbulle_parse_sheets'),
+    
+    # Generate Excel V2 with format preservation
+    path('api/consbulle/generate/', consbulle_api.GenerateConsBulleV2APIView.as_view(), name='consbulle_generate_v2'),
 ]

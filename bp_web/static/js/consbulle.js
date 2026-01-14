@@ -1,21 +1,242 @@
 /**
- * Consolidation par Bulle - Structured wizard for Excel consolidation
- * Version 2 with per-site configuration
+ * Consolidation par Bulle V2 - Enhanced wizard with SQLite persistence
+ * Features: folder drag-drop, auto sheet detection, format preservation
  */
 
 // State
 let consBulleData = {
+    configId: null,
+    configName: 'Nouvelle Configuration',
+    outputFilename: 'Consolidation',
     responsables: [],
     selectedResponsable: null,
     selectedSite: null,
-    config: {
-        sheetName: 'Branche',
-        colStart: 'A',
-        colEnd: 'F',
-        rowStart: 1,
-        rowEnd: 10
-    }
+    allSheets: [],          // All unique sheets across files
+    selectedSheets: [],      // User-selected sheets
+    savedConfigs: []
 };
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('ConsBulle V2 loaded');
+    initConsBulle();
+    loadSavedConfigs();
+});
+
+function initConsBulle() {
+    renderResponsables();
+    renderSites();
+    renderSheets();
+    initFolderDropZone();
+}
+
+// ============================================
+// FOLDER DRAG & DROP
+// ============================================
+
+function initFolderDropZone() {
+    const dropZone = document.getElementById('consbulle-folder-drop');
+    if (!dropZone) {
+        console.log('ConsBulle folder drop zone not found');
+        return;
+    }
+
+    console.log('Initializing folder drop zone');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+
+        console.log('Files dropped on ConsBulle zone');
+        await handleFolderDrop(e.dataTransfer);
+    });
+
+    // Also support file input
+    const fileInput = document.getElementById('consbulle-files');
+    if (fileInput) {
+        fileInput.addEventListener('change', async (e) => {
+            await handleFileInput(e.target.files);
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+    }
+}
+
+async function handleFolderDrop(dataTransfer) {
+    const items = dataTransfer.items;
+    const filesByFolder = {};
+
+    // Process dropped items
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                // Try to get folder from path
+                const path = file.webkitRelativePath || file.name;
+                const parts = path.split('/');
+                const folderName = parts.length > 1 ? parts[parts.length - 2] : 'Responsable';
+
+                if (!filesByFolder[folderName]) {
+                    filesByFolder[folderName] = [];
+                }
+                filesByFolder[folderName].push(file);
+            }
+        }
+    }
+
+    // Fallback: check files from dataTransfer
+    const files = dataTransfer.files;
+    if (Object.keys(filesByFolder).length === 0 && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                const path = file.webkitRelativePath || file.name;
+                const parts = path.split('/');
+                const folderName = parts.length > 1 ? parts[parts.length - 2] : 'Responsable';
+
+                if (!filesByFolder[folderName]) {
+                    filesByFolder[folderName] = [];
+                }
+                filesByFolder[folderName].push(file);
+            }
+        }
+    }
+
+    if (Object.keys(filesByFolder).length > 0) {
+        await processDroppedFiles(filesByFolder);
+    } else {
+        alert('Aucun fichier Excel trouvé. Glissez des fichiers .xlsx ou .xls');
+    }
+}
+
+async function handleFileInput(fileList) {
+    const filesByFolder = {};
+
+    for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            const path = file.webkitRelativePath || file.name;
+            const parts = path.split('/');
+            const folderName = parts.length > 1 ? parts[parts.length - 2] : 'Responsable';
+
+            if (!filesByFolder[folderName]) {
+                filesByFolder[folderName] = [];
+            }
+            filesByFolder[folderName].push(file);
+        }
+    }
+
+    if (Object.keys(filesByFolder).length > 0) {
+        await processDroppedFiles(filesByFolder);
+    }
+}
+
+async function processDroppedFiles(filesByFolder) {
+    console.log('Processing files by folder:', filesByFolder);
+
+    // Parse sheets from files first
+    const allFiles = [];
+    Object.values(filesByFolder).forEach(files => allFiles.push(...files));
+
+    // Get all sheets
+    const formData = new FormData();
+    allFiles.forEach(file => formData.append('files', file));
+
+    try {
+        const response = await fetch('/api/consbulle/parse-sheets/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            consBulleData.allSheets = data.all_sheets || [];
+            consBulleData.selectedSheets = [...consBulleData.allSheets]; // Select all by default
+
+            // Create responsables and sites from folders
+            for (const [folderName, files] of Object.entries(filesByFolder)) {
+                // Check if responsable already exists
+                let resp = consBulleData.responsables.find(r => r.name === folderName);
+
+                if (!resp) {
+                    resp = {
+                        id: 'resp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        name: folderName.replace(/_/g, ' '),
+                        sites: []
+                    };
+                    consBulleData.responsables.push(resp);
+                }
+
+                // Add files as sites
+                files.forEach((file, index) => {
+                    const siteName = file.name.replace(/\.(xlsx|xls)$/i, '').replace(/_/g, ' ');
+                    const fileSheets = data.file_sheets[file.name] || [];
+
+                    resp.sites.push({
+                        id: 'site_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 5),
+                        name: siteName,
+                        filename: file.name,
+                        file: file,
+                        detected_sheets: fileSheets
+                    });
+                });
+            }
+
+            renderResponsables();
+            renderSites();
+            renderSheets();
+
+            // Auto-select first responsable
+            if (consBulleData.responsables.length > 0) {
+                selectResponsable(consBulleData.responsables[0].id);
+            }
+        }
+    } catch (error) {
+        console.error('Error parsing sheets:', error);
+        // Create structure anyway
+        for (const [folderName, files] of Object.entries(filesByFolder)) {
+            const resp = {
+                id: 'resp_' + Date.now(),
+                name: folderName.replace(/_/g, ' '),
+                sites: []
+            };
+
+            files.forEach((file, index) => {
+                resp.sites.push({
+                    id: 'site_' + Date.now() + '_' + index,
+                    name: file.name.replace(/\.(xlsx|xls)$/i, '').replace(/_/g, ' '),
+                    filename: file.name,
+                    file: file,
+                    detected_sheets: []
+                });
+            });
+
+            consBulleData.responsables.push(resp);
+        }
+
+        renderResponsables();
+        renderSites();
+    }
+}
 
 // ============================================
 // RESPONSABLES MANAGEMENT
@@ -38,12 +259,13 @@ function addResponsable() {
 
 function renderResponsables() {
     const container = document.getElementById('responsables-list');
+    if (!container) return;
 
     if (consBulleData.responsables.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <span>👤</span>
-                <p>Cliquez sur "Ajouter" pour créer un responsable</p>
+                <p>Glissez un dossier ou cliquez "Ajouter"</p>
             </div>
         `;
         return;
@@ -60,8 +282,8 @@ function renderResponsables() {
                     <div class="resp-item-count">${resp.sites.length} site(s)</div>
                 </div>
                 <div class="resp-item-actions">
-                    <button class="resp-item-btn" onclick="event.stopPropagation(); editResponsable('${resp.id}')">✏️</button>
-                    <button class="resp-item-btn" onclick="event.stopPropagation(); removeResponsable('${resp.id}')">🗑️</button>
+                    <button class="resp-item-btn" onclick="event.stopPropagation(); editResponsable('${resp.id}')" title="Renommer">✏️</button>
+                    <button class="resp-item-btn" onclick="event.stopPropagation(); removeResponsable('${resp.id}')" title="Supprimer">🗑️</button>
                 </div>
             </div>
         `;
@@ -100,7 +322,6 @@ function removeResponsable(id) {
     }
     renderResponsables();
     renderSites();
-    updateConfigDisplay();
 }
 
 // ============================================
@@ -119,19 +340,12 @@ function addSite() {
     const resp = consBulleData.responsables.find(r => r.id === consBulleData.selectedResponsable);
     if (!resp) return;
 
-    // Get default config values
     const site = {
         id: 'site_' + Date.now(),
         name: name,
-        file: null,
         filename: null,
-        config: {
-            sheetName: document.getElementById('cb-sheet-name').value || 'Branche',
-            colStart: document.getElementById('cb-col-start').value.toUpperCase() || 'A',
-            colEnd: document.getElementById('cb-col-end').value.toUpperCase() || 'F',
-            rowStart: parseInt(document.getElementById('cb-row-start').value) || 1,
-            rowEnd: parseInt(document.getElementById('cb-row-end').value) || 10
-        }
+        file: null,
+        detected_sheets: []
     };
 
     resp.sites.push(site);
@@ -142,12 +356,13 @@ function addSite() {
 
 function renderSites() {
     const container = document.getElementById('sites-list');
+    if (!container) return;
 
     if (!consBulleData.selectedResponsable) {
         container.innerHTML = `
             <div class="empty-state">
                 <span>📄</span>
-                <p>Sélectionnez un responsable puis ajoutez des sites</p>
+                <p>Sélectionnez un responsable</p>
             </div>
         `;
         return;
@@ -158,7 +373,7 @@ function renderSites() {
         container.innerHTML = `
             <div class="empty-state">
                 <span>📄</span>
-                <p>Cliquez sur "Ajouter Site" pour créer un site</p>
+                <p>Aucun site. Glissez des fichiers ou cliquez "Ajouter"</p>
             </div>
         `;
         return;
@@ -167,7 +382,6 @@ function renderSites() {
     let html = '';
     resp.sites.forEach(site => {
         const isSelected = consBulleData.selectedSite === site.id;
-        const hasConfig = site.config && site.config.colStart;
         html += `
             <div class="site-item ${site.file ? 'has-file' : ''} ${isSelected ? 'selected' : ''}" 
                  onclick="selectSite('${resp.id}', '${site.id}')">
@@ -175,13 +389,14 @@ function renderSites() {
                 <div class="site-item-info">
                     <div class="site-item-name">${site.name}</div>
                     <div class="site-item-file">${site.filename || 'Aucun fichier'}</div>
-                    ${hasConfig ? `<div class="site-item-config">📊 ${site.config.sheetName}: Col ${site.config.colStart}-${site.config.colEnd}, Lig ${site.config.rowStart}-${site.config.rowEnd}</div>` : ''}
+                    ${site.detected_sheets.length > 0 ? `<div class="site-item-config">📋 ${site.detected_sheets.length} feuille(s)</div>` : ''}
                 </div>
+                <button class="resp-item-btn" onclick="event.stopPropagation(); editSite('${resp.id}', '${site.id}')" title="Renommer">✏️</button>
                 <label class="site-item-upload" onclick="event.stopPropagation();">
-                    📂 ${site.file ? 'Changer' : 'Charger'}
+                    📂
                     <input type="file" accept=".xlsx,.xls" onchange="handleSiteFile(event, '${resp.id}', '${site.id}')">
                 </label>
-                <button class="resp-item-btn" onclick="event.stopPropagation(); removeSite('${resp.id}', '${site.id}')">🗑️</button>
+                <button class="resp-item-btn" onclick="event.stopPropagation(); removeSite('${resp.id}', '${site.id}')" title="Supprimer">🗑️</button>
             </div>
         `;
     });
@@ -191,42 +406,24 @@ function renderSites() {
 
 function selectSite(respId, siteId) {
     consBulleData.selectedSite = siteId;
-
-    // Load site config into form
-    const resp = consBulleData.responsables.find(r => r.id === respId);
-    if (resp) {
-        const site = resp.sites.find(s => s.id === siteId);
-        if (site && site.config) {
-            document.getElementById('cb-sheet-name').value = site.config.sheetName || 'Branche';
-            document.getElementById('cb-col-start').value = site.config.colStart || 'A';
-            document.getElementById('cb-col-end').value = site.config.colEnd || 'F';
-            document.getElementById('cb-row-start').value = site.config.rowStart || 1;
-            document.getElementById('cb-row-end').value = site.config.rowEnd || 10;
-        }
-    }
-
     renderSites();
-    updateConfigDisplay();
 }
 
-function updateConfigDisplay() {
-    const configTitle = document.querySelector('.consbulle-step:nth-child(3) .card-header h3');
-    if (configTitle) {
-        if (consBulleData.selectedSite) {
-            const resp = consBulleData.responsables.find(r => r.id === consBulleData.selectedResponsable);
-            if (resp) {
-                const site = resp.sites.find(s => s.id === consBulleData.selectedSite);
-                if (site) {
-                    configTitle.innerHTML = `⚙️ Config: <span style="color: #10b981;">${site.name}</span>`;
-                }
-            }
-        } else {
-            configTitle.innerHTML = "⚙️ Étape 3: Configuration d'extraction";
-        }
+function editSite(respId, siteId) {
+    const resp = consBulleData.responsables.find(r => r.id === respId);
+    if (!resp) return;
+
+    const site = resp.sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    const newName = prompt('Nouveau nom du site:', site.name);
+    if (newName) {
+        site.name = newName;
+        renderSites();
     }
 }
 
-function handleSiteFile(event, respId, siteId) {
+async function handleSiteFile(event, respId, siteId) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -238,6 +435,36 @@ function handleSiteFile(event, respId, siteId) {
 
     site.file = file;
     site.filename = file.name;
+
+    // Parse sheets from this file
+    const formData = new FormData();
+    formData.append('files', file);
+
+    try {
+        const response = await fetch('/api/consbulle/parse-sheets/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            site.detected_sheets = data.file_sheets[file.name] || [];
+
+            // Update all sheets list
+            consBulleData.allSheets = [...new Set([
+                ...consBulleData.allSheets,
+                ...site.detected_sheets
+            ])];
+            consBulleData.selectedSheets = [...consBulleData.allSheets];
+
+            renderSheets();
+        }
+    } catch (error) {
+        console.error('Error parsing sheets:', error);
+    }
 
     renderResponsables();
     renderSites();
@@ -253,29 +480,59 @@ function removeSite(respId, siteId) {
     }
     renderResponsables();
     renderSites();
-    updateConfigDisplay();
 }
 
-// Save config for selected site
-function saveCurrentSiteConfig() {
-    if (!consBulleData.selectedSite) return;
+// ============================================
+// SHEETS MANAGEMENT
+// ============================================
 
-    const resp = consBulleData.responsables.find(r => r.id === consBulleData.selectedResponsable);
-    if (!resp) return;
+function renderSheets() {
+    const container = document.getElementById('sheets-list');
+    if (!container) return;
 
-    const site = resp.sites.find(s => s.id === consBulleData.selectedSite);
-    if (!site) return;
+    if (consBulleData.allSheets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span>📋</span>
+                <p>Chargez des fichiers Excel pour voir les feuilles</p>
+            </div>
+        `;
+        return;
+    }
 
-    site.config = {
-        sheetName: document.getElementById('cb-sheet-name').value || 'Branche',
-        colStart: document.getElementById('cb-col-start').value.toUpperCase() || 'A',
-        colEnd: document.getElementById('cb-col-end').value.toUpperCase() || 'F',
-        rowStart: parseInt(document.getElementById('cb-row-start').value) || 1,
-        rowEnd: parseInt(document.getElementById('cb-row-end').value) || 10
-    };
+    let html = '<div class="sheets-grid">';
+    consBulleData.allSheets.forEach(sheet => {
+        const isSelected = consBulleData.selectedSheets.includes(sheet);
+        html += `
+            <label class="sheet-checkbox ${isSelected ? 'selected' : ''}" onclick="toggleSheet('${sheet}')">
+                <input type="checkbox" ${isSelected ? 'checked' : ''}>
+                <span>📋 ${sheet}</span>
+            </label>
+        `;
+    });
+    html += '</div>';
 
-    renderSites();
-    console.log('Config saved for site:', site.name, site.config);
+    container.innerHTML = html;
+}
+
+function toggleSheet(sheetName) {
+    const index = consBulleData.selectedSheets.indexOf(sheetName);
+    if (index > -1) {
+        consBulleData.selectedSheets.splice(index, 1);
+    } else {
+        consBulleData.selectedSheets.push(sheetName);
+    }
+    renderSheets();
+}
+
+function selectAllSheets() {
+    consBulleData.selectedSheets = [...consBulleData.allSheets];
+    renderSheets();
+}
+
+function deselectAllSheets() {
+    consBulleData.selectedSheets = [];
+    renderSheets();
 }
 
 // ============================================
@@ -283,34 +540,36 @@ function saveCurrentSiteConfig() {
 // ============================================
 
 function previewConsBulle() {
-    // Save current site config first
-    saveCurrentSiteConfig();
-
     const container = document.getElementById('consbulle-preview');
+    if (!container) return;
 
     if (consBulleData.responsables.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <span>📊</span>
-                <p>Ajoutez des responsables et des sites pour voir l'aperçu</p>
+                <p>Ajoutez des responsables et des sites</p>
             </div>
         `;
         return;
     }
 
+    const outputName = document.getElementById('cb-output-filename')?.value || 'Consolidation';
+    consBulleData.outputFilename = outputName;
+
     let html = '<div class="preview-tree">';
-    html += `<strong>📊 Consolidation Structurée</strong>`;
+    html += `<strong>📊 ${outputName}.xlsx</strong>`;
+    html += `<div style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+        Feuilles sélectionnées: ${consBulleData.selectedSheets.length > 0 ? consBulleData.selectedSheets.join(', ') : 'Toutes'}
+    </div>`;
 
     consBulleData.responsables.forEach(resp => {
         html += `<div class="preview-tree-item resp">👤 <strong>${resp.name}</strong> (${resp.sites.length} sites)</div>`;
         resp.sites.forEach(site => {
             const status = site.file ? '✅' : '⚠️';
-            const cfg = site.config || {};
             html += `<div class="preview-tree-item site" style="margin-left: 24px;">
-                ${status} 📄 ${site.name} ${site.filename ? `(${site.filename})` : ''}
-                <div style="font-size: 11px; color: #64748b; margin-left: 20px;">
-                    Feuille: ${cfg.sheetName || 'N/A'} | Col: ${cfg.colStart || '?'}-${cfg.colEnd || '?'} | Lig: ${cfg.rowStart || '?'}-${cfg.rowEnd || '?'}
-                </div>
+                ${status} 📄 ${site.name}
+                ${site.filename ? `<span style="color: #64748b;">(${site.filename})</span>` : ''}
+                ${site.detected_sheets.length > 0 ? `<div style="font-size: 11px; color: #64748b; margin-left: 20px;">Feuilles: ${site.detected_sheets.join(', ')}</div>` : ''}
             </div>`;
         });
     });
@@ -320,8 +579,9 @@ function previewConsBulle() {
 }
 
 async function generateConsBulle() {
-    // Save current config first
-    saveCurrentSiteConfig();
+    // Update output filename
+    const outputName = document.getElementById('cb-output-filename')?.value || 'Consolidation';
+    consBulleData.outputFilename = outputName;
 
     // Validate
     if (consBulleData.responsables.length === 0) {
@@ -343,12 +603,28 @@ async function generateConsBulle() {
     }
 
     const btn = document.getElementById('btn-generate-consbulle');
-    btn.disabled = true;
-    btn.textContent = '⏳ Génération...';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Génération...';
+    }
 
     try {
         const formData = new FormData();
-        formData.append('config', JSON.stringify(consBulleData));
+
+        // Prepare config
+        const config = {
+            output_filename: consBulleData.outputFilename,
+            selected_sheets: consBulleData.selectedSheets,
+            responsables: consBulleData.responsables.map(r => ({
+                name: r.name,
+                sites: r.sites.map(s => ({
+                    name: s.name,
+                    filename: s.filename
+                }))
+            }))
+        };
+
+        formData.append('config', JSON.stringify(config));
 
         // Add files
         consBulleData.responsables.forEach(resp => {
@@ -356,16 +632,15 @@ async function generateConsBulle() {
                 if (site.file) {
                     formData.append('files', site.file, site.filename);
                     formData.append('file_mapping', JSON.stringify({
-                        respId: resp.id,
-                        siteId: site.id,
                         filename: site.filename,
-                        config: site.config
+                        site_name: site.name,
+                        responsable_name: resp.name
                     }));
                 }
             });
         });
 
-        const response = await fetch('/api/generate-consbulle/', {
+        const response = await fetch('/api/consbulle/generate/', {
             method: 'POST',
             body: formData,
             headers: {
@@ -378,7 +653,7 @@ async function generateConsBulle() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'Consolidation_Structuree.xlsx';
+            a.download = `${consBulleData.outputFilename}.xlsx`;
             a.click();
             window.URL.revokeObjectURL(url);
         } else {
@@ -389,48 +664,148 @@ async function generateConsBulle() {
         console.error('Error:', error);
         alert('Erreur: ' + error.message);
     } finally {
-        btn.disabled = false;
-        btn.textContent = '📥 Générer Excel';
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📥 Générer Excel';
+        }
     }
 }
 
-// Apply config to all sites of selected responsable
-function applyConfigToAllSites() {
-    if (!consBulleData.selectedResponsable) {
-        alert('Veuillez sélectionner un responsable');
+// ============================================
+// SAVE/LOAD CONFIGURATIONS
+// ============================================
+
+async function loadSavedConfigs() {
+    try {
+        const response = await fetch('/api/consbulle/configs/', {
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            consBulleData.savedConfigs = data.configs || [];
+            renderSavedConfigs();
+        }
+    } catch (error) {
+        console.error('Error loading configs:', error);
+    }
+}
+
+function renderSavedConfigs() {
+    const container = document.getElementById('saved-configs-list');
+    if (!container) return;
+
+    if (consBulleData.savedConfigs.length === 0) {
+        container.innerHTML = '<p style="color: #64748b; font-size: 13px;">Aucune configuration sauvegardée</p>';
         return;
     }
 
-    const config = {
-        sheetName: document.getElementById('cb-sheet-name').value || 'Branche',
-        colStart: document.getElementById('cb-col-start').value.toUpperCase() || 'A',
-        colEnd: document.getElementById('cb-col-end').value.toUpperCase() || 'F',
-        rowStart: parseInt(document.getElementById('cb-row-start').value) || 1,
-        rowEnd: parseInt(document.getElementById('cb-row-end').value) || 10
-    };
+    let html = '';
+    consBulleData.savedConfigs.forEach(config => {
+        html += `
+            <div class="saved-config-item" onclick="loadConfig(${config.id})">
+                <span>📁 ${config.name}</span>
+                <span style="color: #64748b; font-size: 11px;">${config.responsables_count} resp.</span>
+                <button onclick="event.stopPropagation(); deleteConfig(${config.id})" class="resp-item-btn">🗑️</button>
+            </div>
+        `;
+    });
 
-    const resp = consBulleData.responsables.find(r => r.id === consBulleData.selectedResponsable);
-    if (resp) {
-        resp.sites.forEach(site => {
-            site.config = { ...config };
+    container.innerHTML = html;
+}
+
+async function saveCurrentConfig() {
+    const name = prompt('Nom de la configuration:', consBulleData.configName);
+    if (!name) return;
+
+    try {
+        const response = await fetch('/api/consbulle/configs/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                name: name,
+                output_filename: consBulleData.outputFilename,
+                selected_sheets: consBulleData.selectedSheets
+            })
         });
-        renderSites();
-        alert(`Configuration appliquée à ${resp.sites.length} site(s)`);
+
+        if (response.ok) {
+            alert('✅ Configuration sauvegardée!');
+            loadSavedConfigs();
+        }
+    } catch (error) {
+        console.error('Error saving config:', error);
+        alert('Erreur lors de la sauvegarde');
     }
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function () {
-    renderResponsables();
-    renderSites();
+async function loadConfig(configId) {
+    try {
+        const response = await fetch(`/api/consbulle/configs/${configId}/`, {
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
 
-    // Add change listeners to config inputs
-    const configInputs = ['cb-sheet-name', 'cb-col-start', 'cb-col-end', 'cb-row-start', 'cb-row-end'];
-    configInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', saveCurrentSiteConfig);
-            el.addEventListener('blur', saveCurrentSiteConfig);
+        if (response.ok) {
+            const data = await response.json();
+            const config = data.config;
+
+            consBulleData.configId = config.id;
+            consBulleData.configName = config.name;
+            consBulleData.outputFilename = config.output_filename;
+            consBulleData.selectedSheets = config.selected_sheets || [];
+
+            // Update UI
+            const outputInput = document.getElementById('cb-output-filename');
+            if (outputInput) outputInput.value = config.output_filename;
+
+            renderResponsables();
+            renderSites();
+            renderSheets();
+
+            alert(`✅ Configuration "${config.name}" chargée!`);
         }
-    });
-});
+    } catch (error) {
+        console.error('Error loading config:', error);
+    }
+}
+
+async function deleteConfig(configId) {
+    if (!confirm('Supprimer cette configuration?')) return;
+
+    try {
+        const response = await fetch(`/api/consbulle/configs/${configId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            loadSavedConfigs();
+        }
+    } catch (error) {
+        console.error('Error deleting config:', error);
+    }
+}
+
+// ============================================
+// UTILITIES
+// ============================================
+
+function getCSRFToken() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    return '';
+}

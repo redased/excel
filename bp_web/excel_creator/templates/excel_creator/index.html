@@ -513,26 +513,43 @@
             </section>
 
             <!-- ======================= -->
-            <!-- CONSOLIDATION PAR BULLE PAGE -->
+            <!-- CONSOLIDATION PAR BULLE PAGE V2 -->
             <!-- ======================= -->
             <section id="page-consbulle" class="page">
                 <div class="page-header">
-                    <h2>🧩 Consolidation par Bulle</h2>
-                    <p>Créez une consolidation structurée étape par étape</p>
+                    <h2>🧩 Consolidation par Bulle V2</h2>
+                    <p>Glissez un dossier pour créer automatiquement la structure de consolidation</p>
+                </div>
+
+                <!-- Folder Drop Zone -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-body">
+                        <div class="folder-upload-zone" id="consbulle-folder-drop" style="padding: 40px;">
+                            <input type="file" id="consbulle-files" multiple accept=".xlsx,.xls" webkitdirectory>
+                            <div class="upload-placeholder">
+                                <span style="font-size: 48px;">📂</span>
+                                <h3 style="margin: 12px 0 8px;">Glissez un dossier ici</h3>
+                                <p style="color: #64748b;">Le nom du dossier = Responsable • Les fichiers Excel = Sites
+                                </p>
+                                <span style="color: #94a3b8; font-size: 12px;">ou cliquez pour sélectionner des
+                                    fichiers</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="consbulle-container">
                     <!-- Step 1: Responsables -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>👤 Étape 1: Responsables</h3>
+                            <h3>👤 Responsables</h3>
                             <button class="btn btn-sm btn-primary" onclick="addResponsable()">+ Ajouter</button>
                         </div>
                         <div class="card-body">
                             <div id="responsables-list" class="consbulle-items">
                                 <div class="empty-state">
                                     <span>👤</span>
-                                    <p>Cliquez sur "Ajouter" pour créer un responsable</p>
+                                    <p>Glissez un dossier ou cliquez "Ajouter"</p>
                                 </div>
                             </div>
                         </div>
@@ -541,79 +558,83 @@
                     <!-- Step 2: Sites -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>📄 Étape 2: Sites</h3>
+                            <h3>📄 Sites (Fichiers Excel)</h3>
                             <button class="btn btn-sm btn-primary" onclick="addSite()" id="btn-add-site" disabled>+
-                                Ajouter Site</button>
+                                Ajouter</button>
                         </div>
                         <div class="card-body">
                             <div id="sites-list" class="consbulle-items">
                                 <div class="empty-state">
                                     <span>📄</span>
-                                    <p>Sélectionnez un responsable puis ajoutez des sites</p>
+                                    <p>Sélectionnez un responsable</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Step 3: Configuration -->
+                    <!-- Step 3: Sheets Selection -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>⚙️ Étape 3: Configuration d'extraction</h3>
-                            <button class="btn btn-sm btn-secondary" onclick="applyConfigToAllSites()">📋 Appliquer à
-                                tous</button>
+                            <h3>📋 Feuilles à inclure</h3>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllSheets()">✓ Toutes</button>
+                                <button class="btn btn-sm btn-secondary" onclick="deselectAllSheets()">✗ Aucune</button>
+                            </div>
                         </div>
                         <div class="card-body">
-                            <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                                💡 Sélectionnez un site pour modifier sa configuration. La config est sauvegardée
-                                automatiquement.
-                            </p>
-                            <div class="config-grid">
-                                <div class="form-group">
-                                    <label>Feuille à extraire</label>
-                                    <input type="text" id="cb-sheet-name" value="Branche"
-                                        placeholder="Nom de la feuille...">
-                                </div>
-                                <div class="form-group">
-                                    <label>Colonnes (de - à)</label>
-                                    <div class="input-row">
-                                        <input type="text" id="cb-col-start" value="A" style="width:60px;"
-                                            placeholder="A" maxlength="2">
-                                        <span>à</span>
-                                        <input type="text" id="cb-col-end" value="F" style="width:60px;" placeholder="F"
-                                            maxlength="2">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Lignes (de - à)</label>
-                                    <div class="input-row">
-                                        <input type="number" id="cb-row-start" value="1" min="1" style="width:70px;">
-                                        <span>à</span>
-                                        <input type="number" id="cb-row-end" value="10" min="1" style="width:70px;">
-                                    </div>
+                            <div id="sheets-list" class="consbulle-items">
+                                <div class="empty-state">
+                                    <span>📋</span>
+                                    <p>Chargez des fichiers pour voir les feuilles</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Step 4: Preview & Generate -->
+                    <!-- Step 4: Output & Generate -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>📊 Étape 4: Aperçu & Génération</h3>
+                            <h3>📊 Génération</h3>
                         </div>
                         <div class="card-body">
-                            <div id="consbulle-preview" class="consbulle-preview">
+                            <!-- Output filename -->
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label style="font-weight: 500; margin-bottom: 6px; display: block;">Nom du fichier de
+                                    sortie</label>
+                                <input type="text" id="cb-output-filename" value="Consolidation"
+                                    placeholder="Nom du fichier..."
+                                    style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            </div>
+
+                            <!-- Preview -->
+                            <div id="consbulle-preview" class="consbulle-preview" style="margin-bottom: 16px;">
                                 <div class="empty-state">
                                     <span>📊</span>
-                                    <p>L'aperçu de la consolidation apparaîtra ici</p>
+                                    <p>Cliquez "Aperçu" pour voir la structure</p>
                                 </div>
                             </div>
-                            <div style="margin-top: 16px; display: flex; gap: 12px;">
+
+                            <!-- Actions -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                                 <button class="btn btn-secondary" onclick="previewConsBulle()">👁️ Aperçu</button>
                                 <button class="btn btn-primary" onclick="generateConsBulle()"
                                     id="btn-generate-consbulle">
                                     📥 Générer Excel
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save/Load Section -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>💾 Configurations Sauvegardées</h3>
+                        <button class="btn btn-sm btn-primary" onclick="saveCurrentConfig()">💾 Sauvegarder</button>
+                    </div>
+                    <div class="card-body">
+                        <div id="saved-configs-list">
+                            <p style="color: #64748b; font-size: 13px;">Aucune configuration sauvegardée</p>
                         </div>
                     </div>
                 </div>
