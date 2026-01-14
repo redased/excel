@@ -168,6 +168,10 @@ class MultiModeConsolidationAPIView(View):
             
             # Process each file
             for f in files:
+                # Skip temporary Excel files (created when file is open)
+                if f.name.startswith('~$'):
+                    continue
+                    
                 try:
                     src_wb = load_workbook(f, data_only=True)
                     
