@@ -1,0 +1,337 @@
+/* ============================================
+   CONSOLIDATION PAR BULLE - Structured Wizard
+   ============================================ */
+
+.consbulle-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.consbulle-step {
+    min-height: 200px;
+}
+
+.consbulle-step .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.consbulle-items {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.consbulle-items .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+    color: #94a3b8;
+}
+
+.consbulle-items .empty-state span {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.consbulle-items .empty-state p {
+    font-size: 13px;
+    text-align: center;
+}
+
+/* Responsable Item */
+.resp-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.resp-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.resp-item.selected {
+    box-shadow: 0 0 0 3px #bfdbfe;
+}
+
+.resp-item-icon {
+    font-size: 20px;
+}
+
+.resp-item-info {
+    flex: 1;
+}
+
+.resp-item-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.resp-item-count {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.resp-item-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.resp-item-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.resp-item-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Site Item */
+.site-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 12px;
+    color: white;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.site-item:hover {
+    transform: translateX(4px);
+}
+
+.site-item.has-file {
+    border: 2px solid #34d399;
+}
+
+.site-item.selected {
+    box-shadow: 0 0 0 3px #6ee7b7;
+    transform: scale(1.02);
+}
+
+.site-item-icon {
+    font-size: 20px;
+}
+
+.site-item-info {
+    flex: 1;
+}
+
+.site-item-name {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.site-item-file {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.site-item-config {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-top: 2px;
+}
+
+.site-item-upload {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px dashed rgba(255, 255, 255, 0.5);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.site-item-upload:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-style: solid;
+}
+
+.site-item-upload input {
+    display: none;
+}
+
+/* Config Grid */
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.config-grid .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.config-grid label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+}
+
+.config-grid input {
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.config-grid .input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Preview */
+.consbulle-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 150px;
+}
+
+.consbulle-preview .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: #94a3b8;
+}
+
+.consbulle-preview .empty-state span {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.preview-tree {
+    font-size: 13px;
+}
+
+.preview-tree-item {
+    padding: 4px 0;
+    border-left: 2px solid #e2e8f0;
+    padding-left: 16px;
+    margin-left: 8px;
+}
+
+.preview-tree-item.resp {
+    border-color: #3b82f6;
+}
+
+.preview-tree-item.site {
+    border-color: #10b981;
+}
+
+.preview-tree-item.sheet {
+    border-color: #f59e0b;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .consbulle-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Add Responsable Modal */
+.modal-input-group {
+    margin-bottom: 16px;
+}
+
+.modal-input-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.modal-input-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Sheets Grid */
+.sheets-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sheet-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.sheet-checkbox:hover {
+    background: #e0f2fe;
+}
+
+.sheet-checkbox.selected {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.sheet-checkbox input {
+    display: none;
+}
+
+/* Saved Configs */
+.saved-config-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.saved-config-item:hover {
+    background: #e0f2fe;
+}
+
+/* Folder drop zone enhanced */
+.folder-upload-zone.dragover {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    transform: scale(1.02);
+}

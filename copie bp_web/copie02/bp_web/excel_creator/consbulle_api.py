@@ -52,26 +52,6 @@ class ConsolidationConfigListAPIView(View):
                 output_filename=data.get('output_filename', 'Consolidation'),
                 selected_sheets=data.get('selected_sheets', [])
             )
-            
-            # Save nested responsables
-            if 'responsables' in data:
-                for idx, resp_data in enumerate(data['responsables']):
-                    resp = Responsable.objects.create(
-                        config=config,
-                        name=resp_data.get('name', f'Responsable {idx+1}'),
-                        order=resp_data.get('order', idx)
-                    )
-                    
-                    if 'sites' in resp_data:
-                        for s_idx, site_data in enumerate(resp_data['sites']):
-                            Site.objects.create(
-                                responsable=resp,
-                                name=site_data.get('name', f'Site {s_idx+1}'),
-                                original_filename=site_data.get('original_filename', ''),
-                                detected_sheets=site_data.get('detected_sheets', []),
-                                order=site_data.get('order', s_idx)
-                            )
-            
             return JsonResponse({
                 'success': True,
                 'config': config.to_dict()
@@ -107,29 +87,6 @@ class ConsolidationConfigDetailAPIView(View):
                 config.output_filename = data['output_filename']
             if 'selected_sheets' in data:
                 config.selected_sheets = data['selected_sheets']
-            
-            # Update nested tables if provided
-            if 'responsables' in data:
-                # Clear existing
-                config.responsables.all().delete()
-                
-                # Recreate
-                for idx, resp_data in enumerate(data['responsables']):
-                    resp = Responsable.objects.create(
-                        config=config,
-                        name=resp_data.get('name', f'Responsable {idx+1}'),
-                        order=resp_data.get('order', idx)
-                    )
-                    
-                    if 'sites' in resp_data:
-                        for s_idx, site_data in enumerate(resp_data['sites']):
-                            Site.objects.create(
-                                responsable=resp,
-                                name=site_data.get('name', f'Site {s_idx+1}'),
-                                original_filename=site_data.get('original_filename', ''),
-                                detected_sheets=site_data.get('detected_sheets', []),
-                                order=site_data.get('order', s_idx)
-                            )
             
             config.save()
             return JsonResponse({'success': True, 'config': config.to_dict()})
@@ -306,103 +263,111 @@ class GenerateConsBulleV2APIView(View):
                 mapping = json.loads(mapping_str)
                 file_map[mapping['filename']] = mapping
             
-            # Group data by sheet name
-            sheets_data = {} # { 'SheetName': [ (SiteName, SrcFile), ... ] }
+            # Match files to mappings
+            uploaded_files = {}
+            for f in files:
+                uploaded_files[f.name] = f
             
-            # Map uploaded files
-            uploaded_files = {f.name: f for f in files}
+            # Create output workbook
+            wb = Workbook()
+            # Remove default sheet
+            default_sheet = wb.active
+            wb.remove(default_sheet)
             
-            # 1. Collect all sources
+            # Get selected sheets
+            selected_sheets = config_data.get('selected_sheets', [])
+            
+            # Process each responsable
             for resp in config_data.get('responsables', []):
                 for site in resp.get('sites', []):
                     filename = site.get('filename')
+                    
                     if filename and filename in uploaded_files:
                         try:
-                            # We need to peek into the file silently or trust detected_sheets if reliable
-                            # But robust way is open it (or use cached mapping if available)
-                            # For now, let's open to be sure which sheets exist
-                            f = uploaded_files[filename]
-                            f.seek(0)
-                            src_wb = load_workbook(f, read_only=True)
+                            src_file = uploaded_files[filename]
+                            src_wb = load_workbook(src_file)
                             
+                            # Copy each selected sheet
                             for sheet_name in src_wb.sheetnames:
                                 if selected_sheets and sheet_name not in selected_sheets:
                                     continue
                                 
-                                if sheet_name not in sheets_data:
-                                    sheets_data[sheet_name] = []
+                                src_ws = src_wb[sheet_name]
                                 
-                                sheets_data[sheet_name].append({
-                                    'site_name': site.get('name', 'Site'),
-                                    'filename': filename
-                                })
+                                # Create unique sheet name
+                                dest_sheet_name = f"{site.get('name', 'Site')} - {sheet_name}"[:31]
+                                if dest_sheet_name in wb.sheetnames:
+                                    dest_sheet_name = f"{dest_sheet_name[:28]}_{len(wb.sheetnames)}"
+                                
+                                dest_ws = wb.create_sheet(title=dest_sheet_name)
+                                
+                                # Copy dimensions
+                                for col_letter, col_dim in src_ws.column_dimensions.items():
+                                    dest_ws.column_dimensions[col_letter].width = col_dim.width
+                                    dest_ws.column_dimensions[col_letter].hidden = col_dim.hidden
+                                
+                                for row_num, row_dim in src_ws.row_dimensions.items():
+                                    dest_ws.row_dimensions[row_num].height = row_dim.height
+                                    dest_ws.row_dimensions[row_num].hidden = row_dim.hidden
+                                
+                                # Copy cells with formatting
+                                for row in src_ws.iter_rows():
+                                    for cell in row:
+                                        dest_cell = dest_ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                                        
+                                        # Copy font
+                                        if cell.font:
+                                            dest_cell.font = Font(
+                                                name=cell.font.name,
+                                                size=cell.font.size,
+                                                bold=cell.font.bold,
+                                                italic=cell.font.italic,
+                                                underline=cell.font.underline,
+                                                strike=cell.font.strike,
+                                                color=cell.font.color
+                                            )
+                                        
+                                        # Copy fill
+                                        if cell.fill and cell.fill.patternType:
+                                            dest_cell.fill = PatternFill(
+                                                patternType=cell.fill.patternType,
+                                                fgColor=cell.fill.fgColor,
+                                                bgColor=cell.fill.bgColor
+                                            )
+                                        
+                                        # Copy border
+                                        if cell.border:
+                                            dest_cell.border = Border(
+                                                left=cell.border.left,
+                                                right=cell.border.right,
+                                                top=cell.border.top,
+                                                bottom=cell.border.bottom
+                                            )
+                                        
+                                        # Copy alignment
+                                        if cell.alignment:
+                                            dest_cell.alignment = Alignment(
+                                                horizontal=cell.alignment.horizontal,
+                                                vertical=cell.alignment.vertical,
+                                                wrap_text=cell.alignment.wrap_text,
+                                                shrink_to_fit=cell.alignment.shrink_to_fit,
+                                                indent=cell.alignment.indent
+                                            )
+                                        
+                                        # Copy number format
+                                        if cell.number_format:
+                                            dest_cell.number_format = cell.number_format
+                                
+                                # Copy merged cells
+                                for merged_range in src_ws.merged_cells.ranges:
+                                    dest_ws.merge_cells(str(merged_range))
                             
                             src_wb.close()
-                            f.seek(0)
+                            
                         except Exception as e:
-                            print(f"Error reading {filename}: {e}")
-
-            # 2. Process each grouped sheet
-            for sheet_name, sources in sheets_data.items():
-                dest_ws = wb.create_sheet(title=sheet_name[:31])
-                current_row_val = 1
-                
-                for src_info in sources:
-                    filename = src_info['filename']
-                    site_name = src_info['site_name']
-                    
-                    src_file = uploaded_files[filename]
-                    src_file.seek(0) 
-                    src_wb = load_workbook(src_file) # Read/Write mode for accessing styles properly
-                    src_ws = src_wb[sheet_name]
-                    
-                    # A. Add Site Header
-                    header_cell = dest_ws.cell(row=current_row_val, column=1, value=f"📍 {site_name}")
-                    header_cell.font = Font(bold=True, size=14, color="3b82f6") # Blue header
-                    current_row_val += 2
-                    
-                    # B. Copy Content
-                    max_col = src_ws.max_column
-                    max_row = src_ws.max_row
-                    
-                    # Copy Cells
-                    for row in src_ws.iter_rows():
-                        for cell in row:
-                            new_row = current_row_val + cell.row - 1
-                            new_col = cell.column
-                            
-                            dest_cell = dest_ws.cell(row=new_row, column=new_col, value=cell.value)
-                            
-                            # styles
-                            if cell.has_style:
-                                dest_cell.font = copy_font(cell.font)
-                                dest_cell.border = copy_border(cell.border)
-                                dest_cell.fill = copy_fill(cell.fill)
-                                dest_cell.number_format = cell.number_format
-                                dest_cell.alignment = copy_alignment(cell.alignment)
-                    
-                    # Handle Merged Cells
-                    for merged in src_ws.merged_cells.ranges:
-                        # Shift range by current_row_val - 1
-                        min_col, min_row, max_col, max_row = merged.bounds
-                        new_min_row = min_row + current_row_val - 1
-                        new_max_row = max_row + current_row_val - 1
-                        dest_ws.merge_cells(start_row=new_min_row, start_column=min_col, 
-                                          end_row=new_max_row, end_column=max_col)
-                    
-                    # Copy Dimensions (Only for the first source, or max logic? Stacking implies sharing columns)
-                    # Issue: If Site A Col A is wide, and Site B Col A is narrow...
-                    # Strategy: Take the max width encountered or just keep first. 
-                    # Let's keep first for now or update if larger.
-                    for col_letter, col_dim in src_ws.column_dimensions.items():
-                        dest_col = dest_ws.column_dimensions[col_letter]
-                        if not dest_col.width or (col_dim.width and col_dim.width > dest_col.width):
-                             dest_col.width = col_dim.width
-
-                    src_wb.close()
-                    
-                    # Increment row for next site
-                    current_row_val += max_row + 2 # +2 spacer
+                            # Create error sheet
+                            error_ws = wb.create_sheet(title=f"Erreur - {site.get('name', 'Site')}"[:31])
+                            error_ws.cell(row=1, column=1, value=f"Erreur: {str(e)}")
             
             # Ensure at least one sheet exists
             if len(wb.sheetnames) == 0:
@@ -430,29 +395,3 @@ class GenerateConsBulleV2APIView(View):
                 'success': False,
                 'error': str(e)
             }, status=500)
-
-
-# ============================================
-# STYLE HELPERS
-# ============================================
-
-def copy_font(font):
-    if not font: return None
-    return Font(name=font.name, size=font.size, bold=font.bold, italic=font.italic, 
-                vertAlign=font.vertAlign, underline=font.underline, strike=font.strike, color=font.color)
-
-def copy_fill(fill):
-    if not fill: return None
-    return PatternFill(fill_type=fill.fill_type, start_color=fill.start_color, end_color=fill.end_color)
-
-def copy_border(border):
-    if not border: return None
-    return Border(left=border.left, right=border.right, top=border.top, bottom=border.bottom, 
-                  diagonal=border.diagonal, diagonal_direction=border.diagonal_direction, 
-                  outline=border.outline, vertical=border.vertical, horizontal=border.horizontal)
-
-def copy_alignment(alignment):
-    if not alignment: return None
-    return Alignment(horizontal=alignment.horizontal, vertical=alignment.vertical, 
-                     text_rotation=alignment.text_rotation, wrap_text=alignment.wrap_text, 
-                     shrink_to_fit=alignment.shrink_to_fit, indent=alignment.indent)

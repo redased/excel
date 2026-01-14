@@ -32,7 +32,7 @@
                 </button>
 
                 <div class="nav-section-title"
-                    style="padding: 16px 20px 8px; font-size: 11px; color: #818cf8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px;">
+                    style="padding: 16px 20px 8px; font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">
                     🚀 Projets Futurs
                 </div>
                 <button class="nav-item" data-page="bubbles">
@@ -42,10 +42,6 @@
                 <button class="nav-item" data-page="ai-bot">
                     <span class="nav-icon">🤖</span>
                     <span class="nav-text">IA Bot (TensorFlow)</span>
-                </button>
-                <button class="nav-item" data-page="scraper">
-                    <span class="nav-icon">🕷️</span>
-                    <span class="nav-text">Web Scraper</span>
                 </button>
                 <button class="nav-item" data-page="creator">
                     <span class="nav-icon">📄</span>
@@ -843,106 +839,6 @@
                     // Run on load
                     // Use timeout to ensure DOM is ready if script runs early
                     setTimeout(renderAiProgress, 100);
-                </script>
-            </section>
-
-            <!-- ======================= -->
-            <!-- ======================= -->
-            <!-- SCRAPER PAGE -->
-            <!-- ======================= -->
-            <section id="page-scraper" class="page">
-                <div class="page-header">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <h2>🕷️ Web Scraper</h2>
-                            <p>Extraction de données web et analyse de site</p>
-                        </div>
-                        <div class="ai-tabs"
-                            style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
-                            <button class="ai-tab active" onclick="switchScraperTab('config')">⚙️ Configuration</button>
-                            <button class="ai-tab" onclick="switchScraperTab('analyze')">📊 Analyse</button>
-                            <button class="ai-tab" onclick="switchScraperTab('docs')">📚 Documentation</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TAB: CONFIGURATION -->
-                <div id="scraper-tab-config" class="ai-tab-content active" style="padding: 24px;">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>⚙️ Configuration du Scraper</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="empty-state">
-                                <span style="font-size: 48px;">🚧</span>
-                                <h3>Projet Futur</h3>
-                                <p>Module de scraping complet en cours de développement.</p>
-                                <p style="color: #64748b; font-size: 13px; margin-top: 8px;">
-                                    Fonctionnalités prévues : Paramétrage complet, Gestion des sélecteurs, Support
-                                    Proxy/Rotation.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TAB: ANALYZE -->
-                <div id="scraper-tab-analyze" class="ai-tab-content" style="display: none; padding: 24px;">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>📊 Analyse de Site</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label>URL à analyser</label>
-                                <div style="display: flex; gap: 8px;">
-                                    <input type="text" placeholder="https://example.com"
-                                        style="flex: 1; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                    <button class="btn btn-primary">🔍 Analyser</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- TAB: DOCS -->
-                <div id="scraper-tab-docs" class="ai-tab-content" style="display: none; padding: 24px;">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>📚 Documentation & Futures Fonctionnalités</h3>
-                        </div>
-                        <div class="card-body">
-                            <h4>1. Objectif</h4>
-                            <p style="color: #64748b; margin-bottom: 12px;">Créer un outil de scraping polyvalent
-                                capable de s'adapter à n'importe quel site web via une configuration simple et visuelle.
-                            </p>
-
-                            <h4>2. Roadmap</h4>
-                            <ul style="color: #64748b; padding-left: 20px;">
-                                <li>Analyse automatique de la structure HTML</li>
-                                <li>Détection des listes et tableaux</li>
-                                <li>Exportation vers Excel/CSV</li>
-                                <li>Planification des tâches (Cron)</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <script>
-                    function switchScraperTab(tabName) {
-                        const tabs = document.querySelectorAll('#page-scraper .ai-tab');
-                        tabs.forEach(b => b.classList.remove('active'));
-
-                        // Find clicking button
-                        const activeBtn = Array.from(tabs).find(b => b.getAttribute('onclick').includes(tabName));
-                        if (activeBtn) activeBtn.classList.add('active');
-
-                        document.getElementById('scraper-tab-config').style.display = 'none';
-                        document.getElementById('scraper-tab-analyze').style.display = 'none';
-                        document.getElementById('scraper-tab-docs').style.display = 'none';
-
-                        document.getElementById('scraper-tab-' + tabName).style.display = 'block';
-                    }
                 </script>
             </section>
 

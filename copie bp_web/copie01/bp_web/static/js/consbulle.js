@@ -920,8 +920,7 @@ async function generateConsBulle() {
         // Add mode and output filename
         formData.append('mode', mode);
         formData.append('output_filename', outputName);
-        formData.append('sheet_name', ''); // Empty to allow multiple selection via selected_sheets
-        formData.append('selected_sheets', JSON.stringify(consBulleData.selectedSheets));
+        formData.append('sheet_name', targetSheet);
 
         // Add all files directly
         allFiles.forEach(file => {
@@ -1112,8 +1111,7 @@ async function saveCurrentConfig() {
             body: JSON.stringify({
                 name: name,
                 output_filename: consBulleData.outputFilename,
-                selected_sheets: consBulleData.selectedSheets,
-                responsables: consBulleData.responsables
+                selected_sheets: consBulleData.selectedSheets
             })
         });
 
@@ -1143,7 +1141,6 @@ async function loadConfig(configId) {
             consBulleData.configName = config.name;
             consBulleData.outputFilename = config.output_filename;
             consBulleData.selectedSheets = config.selected_sheets || [];
-            consBulleData.responsables = config.responsables || [];
 
             // Update UI
             const outputInput = document.getElementById('cb-output-filename');

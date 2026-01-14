@@ -89,17 +89,10 @@ class MultiModeConsolidationAPIView(View):
                 options = json.loads(options_str)
             except:
                 options = {}
-
-            # Parse selected_sheets (new param for multiple selection)
-            selected_sheets_str = request.POST.get('selected_sheets', '[]')
-            try:
-                selected_sheets = json.loads(selected_sheets_str)
-            except:
-                selected_sheets = []
             
             # Dispatch to appropriate handler
             if mode == 'simple':
-                self._consolidate_simple(wb, files, sheet_name, selected_sheets)
+                self._consolidate_simple(wb, files, sheet_name)
             elif mode == 'synthesis':
                 self._consolidate_synthesis(wb, files, sheet_name, options.get('synthesis', {}))
             elif mode == 'statistics':
@@ -111,7 +104,7 @@ class MultiModeConsolidationAPIView(View):
                 comp_opts = options.get('complete', {})
                 self._consolidate_complete(wb, files, sheet_name, options)
             else:
-                self._consolidate_simple(wb, files, sheet_name, selected_sheets)
+                self._consolidate_simple(wb, files, sheet_name)
             
             # Remove default sheet if others were created
             if len(wb.sheetnames) > 1 and 'Sheet' in wb.sheetnames:
@@ -140,7 +133,7 @@ class MultiModeConsolidationAPIView(View):
     # MODE 1: SIMPLE (Empilage)
     # =====================================
     
-    def _consolidate_simple(self, wb, files, target_sheet='', selected_sheets=None):
+    def _consolidate_simple(self, wb, files, target_sheet=''):
         """Stack tables one below another"""
         
         # Styles
@@ -165,11 +158,9 @@ class MultiModeConsolidationAPIView(View):
             except:
                 pass
         
-        # Filter sheets
+        # Filter sheets if target specified
         if target_sheet:
             sheets_to_process = [target_sheet] if target_sheet in all_sheets else list(all_sheets)[:1]
-        elif selected_sheets and len(selected_sheets) > 0:
-            sheets_to_process = [s for s in all_sheets if s in selected_sheets]
         else:
             sheets_to_process = list(all_sheets)
         

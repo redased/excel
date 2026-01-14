@@ -9,7 +9,6 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('excel_creator.urls')),
-    path('ai/', include('bp_ai.urls')),
 ]
 
 if settings.DEBUG:

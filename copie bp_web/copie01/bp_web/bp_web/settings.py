@@ -24,7 +24,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'excel_creator',
-    'bp_ai',
 ]
 
 MIDDLEWARE = [
