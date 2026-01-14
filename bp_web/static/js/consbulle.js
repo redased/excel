@@ -566,13 +566,35 @@ function renderSheets() {
     const container = document.getElementById('sheets-list');
     if (!container) return;
 
+    // Check if we have any files loaded
+    let hasFiles = false;
+    consBulleData.responsables.forEach(resp => {
+        if (resp.sites && resp.sites.length > 0) hasFiles = true;
+    });
+
     if (consBulleData.allSheets.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <span>📋</span>
-                <p>Chargez des fichiers Excel pour voir les feuilles</p>
-            </div>
-        `;
+        if (hasFiles) {
+            // Files loaded but no sheets detected (API failed)
+            container.innerHTML = `
+                <div class="empty-state" style="text-align: left; padding: 16px;">
+                    <p style="margin-bottom: 12px;">⚠️ <strong>Feuilles non détectées automatiquement</strong></p>
+                    <p style="color: #64748b; font-size: 13px; margin-bottom: 8px;">
+                        L'API de détection n'est pas disponible. Vous avez 2 options :
+                    </p>
+                    <ul style="color: #64748b; font-size: 13px; margin: 0; padding-left: 20px;">
+                        <li style="margin-bottom: 4px;">Utilisez le mode <strong>✏️ Manuel</strong> pour définir les feuilles et plages</li>
+                        <li>Ou cliquez <button onclick="generateWithAllSheets()" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 4px 8px;">📥 Générer toutes les feuilles</button></li>
+                    </ul>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span>📋</span>
+                    <p>Chargez des fichiers Excel pour voir les feuilles</p>
+                </div>
+            `;
+        }
         return;
     }
 
@@ -828,6 +850,72 @@ async function generateConsBulle() {
             const a = document.createElement('a');
             a.href = url;
             a.download = `${consBulleData.outputFilename}.xlsx`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } else {
+            const error = await response.json();
+            alert('Erreur: ' + (error.error || 'Génération échouée'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Erreur: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '📥 Générer Excel';
+        }
+    }
+}
+
+// Quick generate all sheets (fallback when API fails)
+async function generateWithAllSheets() {
+    // Use simple mode with no sheet filter (generates all)
+    const mode = document.getElementById('cb-mode')?.value || 'simple';
+    const outputName = document.getElementById('cb-output-filename')?.value || 'Consolidation';
+
+    // Collect all files
+    let allFiles = [];
+    consBulleData.responsables.forEach(resp => {
+        resp.sites.forEach(site => {
+            if (site.file) allFiles.push(site.file);
+        });
+    });
+
+    if (allFiles.length === 0) {
+        alert('Veuillez charger des fichiers Excel');
+        return;
+    }
+
+    const btn = document.getElementById('btn-generate-consbulle');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Génération...';
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('mode', mode);
+        formData.append('output_filename', outputName);
+        formData.append('sheet_name', ''); // Empty = all sheets
+
+        allFiles.forEach(file => {
+            formData.append('files', file);
+        });
+
+        const response = await fetch('/api/consolidation/generate/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${outputName}.xlsx`;
             a.click();
             window.URL.revokeObjectURL(url);
         } else {
