@@ -453,7 +453,7 @@ class GenerateConsBulleAPIView(View):
             files = request.FILES.getlist('files')
             file_mappings = request.POST.getlist('file_mapping')
             
-            # Parse file mappings
+            # Parse file mappings with their configs
             file_map = {}
             for mapping_str in file_mappings:
                 mapping = json.loads(mapping_str)
@@ -463,18 +463,6 @@ class GenerateConsBulleAPIView(View):
             uploaded_files = {}
             for f in files:
                 uploaded_files[f.name] = f
-            
-            # Get extraction config
-            extract_config = config_data.get('config', {})
-            sheet_name = extract_config.get('sheetName', 'Branche')
-            col_start = extract_config.get('colStart', 'E').upper()
-            col_end = extract_config.get('colEnd', 'P').upper()
-            row_start = int(extract_config.get('rowStart', 1))
-            row_end = int(extract_config.get('rowEnd', 10))
-            
-            # Convert column letters to indices
-            col_start_idx = column_index_from_string(col_start)
-            col_end_idx = column_index_from_string(col_end)
             
             # Create output workbook
             wb = Workbook()
@@ -493,12 +481,13 @@ class GenerateConsBulleAPIView(View):
             )
             
             current_row = 1
+            max_cols = 10  # Track max columns for header merge
             
             # Process each responsable
             for resp in config_data.get('responsables', []):
                 # Responsable header
                 ws.merge_cells(start_row=current_row, start_column=1, 
-                              end_row=current_row, end_column=col_end_idx - col_start_idx + 2)
+                              end_row=current_row, end_column=max_cols)
                 cell = ws.cell(row=current_row, column=1, value=f"👤 Responsable: {resp.get('name', '')}")
                 cell.fill = resp_fill
                 cell.font = header_font
@@ -509,8 +498,25 @@ class GenerateConsBulleAPIView(View):
                 for site in resp.get('sites', []):
                     filename = site.get('filename')
                     
-                    # Site header
-                    ws.cell(row=current_row, column=1, value=f"📄 Site: {site.get('name', '')}")
+                    # Get site-specific config or use defaults
+                    site_config = site.get('config', {})
+                    sheet_name = site_config.get('sheetName', 'Branche')
+                    col_start = site_config.get('colStart', 'A').upper()
+                    col_end = site_config.get('colEnd', 'F').upper()
+                    row_start = int(site_config.get('rowStart', 1))
+                    row_end = int(site_config.get('rowEnd', 10))
+                    
+                    # Convert column letters to indices
+                    try:
+                        col_start_idx = column_index_from_string(col_start)
+                        col_end_idx = column_index_from_string(col_end)
+                    except:
+                        col_start_idx = 1
+                        col_end_idx = 6
+                    
+                    # Site header with config info
+                    site_info = f"📄 Site: {site.get('name', '')} | Feuille: {sheet_name} | Col: {col_start}-{col_end} | Lig: {row_start}-{row_end}"
+                    ws.cell(row=current_row, column=1, value=site_info)
                     ws.cell(row=current_row, column=1).font = Font(bold=True, size=11, color="059669")
                     current_row += 1
                     
@@ -524,8 +530,11 @@ class GenerateConsBulleAPIView(View):
                             if sheet_name in src_wb.sheetnames:
                                 src_ws = src_wb[sheet_name]
                             else:
-                                # Use first sheet
+                                # Use first sheet and note it
                                 src_ws = src_wb.active
+                                ws.cell(row=current_row, column=1, value=f"(Feuille '{sheet_name}' non trouvée, utilisation de '{src_ws.title}')")
+                                ws.cell(row=current_row, column=1).font = Font(italic=True, size=10, color="F59E0B")
+                                current_row += 1
                             
                             # Extract specified range
                             for src_row in range(row_start, min(row_end + 1, src_ws.max_row + 1)):
@@ -542,10 +551,14 @@ class GenerateConsBulleAPIView(View):
                                     dest_col += 1
                                 current_row += 1
                             
+                            # Update max cols
+                            max_cols = max(max_cols, col_end_idx - col_start_idx + 1)
+                            
                             src_wb.close()
                             
                         except Exception as e:
                             ws.cell(row=current_row, column=1, value=f"Erreur: {str(e)}")
+                            ws.cell(row=current_row, column=1).font = Font(color="EF4444")
                             current_row += 1
                     else:
                         ws.cell(row=current_row, column=1, value="(Fichier non chargé)")
@@ -557,7 +570,7 @@ class GenerateConsBulleAPIView(View):
                 current_row += 1  # Space between responsables
             
             # Auto-fit columns
-            for col in range(1, col_end_idx - col_start_idx + 3):
+            for col in range(1, max_cols + 2):
                 ws.column_dimensions[get_column_letter(col)].width = 15
             
             # Save
