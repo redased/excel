@@ -4,6 +4,7 @@ URL patterns for excel_creator app
 from django.urls import path
 from . import views
 from . import consbulle_api
+from . import consolidation_modes
 
 app_name = 'excel_creator'
 
@@ -43,4 +44,11 @@ urlpatterns = [
     
     # Generate Excel V2 with format preservation
     path('api/consbulle/generate/', consbulle_api.GenerateConsBulleV2APIView.as_view(), name='consbulle_generate_v2'),
+    
+    # ============================================
+    # Multi-Mode Consolidation APIs
+    # ============================================
+    path('api/consolidation/modes/', consolidation_modes.ConsolidationModesAPIView.as_view(), name='consolidation_modes'),
+    path('api/consolidation/generate/', consolidation_modes.MultiModeConsolidationAPIView.as_view(), name='consolidation_generate'),
 ]
+

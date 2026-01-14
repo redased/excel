@@ -635,6 +635,12 @@ async function generateConsBulle() {
     const outputName = document.getElementById('cb-output-filename')?.value || 'Consolidation';
     consBulleData.outputFilename = outputName;
 
+    // Get selected mode
+    const mode = document.getElementById('cb-mode')?.value || 'simple';
+
+    // Get first selected sheet for target
+    const targetSheet = consBulleData.selectedSheets.length > 0 ? consBulleData.selectedSheets[0] : '';
+
     // Validate
     if (consBulleData.responsables.length === 0) {
         alert('Veuillez ajouter au moins un responsable');
@@ -643,9 +649,13 @@ async function generateConsBulle() {
 
     // Check for files
     let hasFiles = false;
+    let allFiles = [];
     consBulleData.responsables.forEach(resp => {
         resp.sites.forEach(site => {
-            if (site.file) hasFiles = true;
+            if (site.file) {
+                hasFiles = true;
+                allFiles.push(site.file);
+            }
         });
     });
 
@@ -663,36 +673,18 @@ async function generateConsBulle() {
     try {
         const formData = new FormData();
 
-        // Prepare config
-        const config = {
-            output_filename: consBulleData.outputFilename,
-            selected_sheets: consBulleData.selectedSheets,
-            responsables: consBulleData.responsables.map(r => ({
-                name: r.name,
-                sites: r.sites.map(s => ({
-                    name: s.name,
-                    filename: s.filename
-                }))
-            }))
-        };
+        // Add mode and output filename
+        formData.append('mode', mode);
+        formData.append('output_filename', outputName);
+        formData.append('sheet_name', targetSheet);
 
-        formData.append('config', JSON.stringify(config));
-
-        // Add files
-        consBulleData.responsables.forEach(resp => {
-            resp.sites.forEach(site => {
-                if (site.file) {
-                    formData.append('files', site.file, site.filename);
-                    formData.append('file_mapping', JSON.stringify({
-                        filename: site.filename,
-                        site_name: site.name,
-                        responsable_name: resp.name
-                    }));
-                }
-            });
+        // Add all files directly
+        allFiles.forEach(file => {
+            formData.append('files', file);
         });
 
-        const response = await fetch('/api/consbulle/generate/', {
+        // Use the multi-mode consolidation API
+        const response = await fetch('/api/consolidation/generate/', {
             method: 'POST',
             body: formData,
             headers: {
