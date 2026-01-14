@@ -561,11 +561,98 @@ function editSite(respId, siteId) {
     const site = resp.sites.find(s => s.id === siteId);
     if (!site) return;
 
-    const newName = prompt('Nouveau nom du site:', site.name);
-    if (newName) {
-        site.name = newName;
-        renderSites();
+    // Populate Modal
+    document.getElementById('site-modal-resp-id').value = respId;
+    document.getElementById('site-modal-site-id').value = siteId;
+    document.getElementById('site-modal-name').value = site.name || '';
+    document.getElementById('site-modal-city').value = site.city || '';
+    document.getElementById('site-modal-country').value = site.country || '';
+    document.getElementById('site-modal-service').value = site.service || '';
+    document.getElementById('site-modal-manager').value = site.manager || '';
+
+    // Show Modal
+    document.getElementById('site-details-modal').style.display = 'block';
+}
+
+function closeSiteDetailsModal() {
+    document.getElementById('site-details-modal').style.display = 'none';
+}
+
+function saveSiteDetails() {
+    const respId = document.getElementById('site-modal-resp-id').value;
+    const siteId = document.getElementById('site-modal-site-id').value;
+
+    const resp = consBulleData.responsables.find(r => r.id === respId);
+    if (!resp) return;
+
+    const site = resp.sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    // Update Data
+    site.name = document.getElementById('site-modal-name').value;
+    site.city = document.getElementById('site-modal-city').value;
+    site.country = document.getElementById('site-modal-country').value;
+    site.service = document.getElementById('site-modal-service').value;
+    site.manager = document.getElementById('site-modal-manager').value;
+
+    renderSites();
+    closeSiteDetailsModal();
+}
+
+// TREE VISUALIZATION
+function viewTree() {
+    const rootName = "Entreprise Mère"; // Could be configurable
+
+    let html = `
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <div style="border: 2px solid #2563eb; background: #eff6ff; padding: 12px 24px; border-radius: 8px; font-weight: bold; color: #1e3a8a; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                🏢 ${rootName}
+            </div>
+            <div style="width: 2px; height: 30px; background: #cbd5e1;"></div>
+            <div style="display: flex; gap: 40px; margin-top: 0;">
+    `;
+
+    if (consBulleData.responsables.length === 0) {
+        html += `<div style="color: #64748b;">Aucune donnée</div>`;
+    } else {
+        consBulleData.responsables.forEach(resp => {
+            html += `
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <div style="border: 2px solid #059669; background: #ecfdf5; padding: 10px 20px; border-radius: 8px; font-weight: 600; color: #065f46; margin-top: -2px; position: relative;">
+                         👤 ${resp.name}
+                    </div>
+                    
+                    ${resp.sites.length > 0 ? `
+                        <div style="width: 2px; height: 30px; background: #cbd5e1;"></div>
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            ${resp.sites.map(site => `
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <div style="border: 1px solid #94a3b8; background: white; padding: 8px 12px; border-radius: 6px; font-size: 13px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-width: 120px;">
+                                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 4px;">${site.name}</div>
+                                        ${site.manager ? `<div style="font-size: 11px; color: #475569;">👤 ${site.manager}</div>` : ''}
+                                        ${site.service ? `<div style="font-size: 11px; color: #64748b;">🔧 ${site.service}</div>` : ''}
+                                        ${(site.city || site.country) ? `<div style="font-size: 11px; color: #94a3b8;">📍 ${site.city || ''} ${site.country || ''}</div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
     }
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    document.getElementById('tree-visualization').innerHTML = html;
+    document.getElementById('tree-view-modal').style.display = 'block';
+}
+
+function closeTreeModal() {
+    document.getElementById('tree-view-modal').style.display = 'none';
 }
 
 async function handleSiteFile(event, respId, siteId) {
@@ -670,9 +757,11 @@ function renderSheets() {
     let html = '<div class="sheets-grid">';
     consBulleData.allSheets.forEach(sheet => {
         const isSelected = consBulleData.selectedSheets.includes(sheet);
+        // Escape single quotes for the function call
+        const safeSheet = sheet.replace(/'/g, "\\'");
         html += `
-            <label class="sheet-checkbox ${isSelected ? 'selected' : ''}" onclick="toggleSheet('${sheet}')">
-                <input type="checkbox" ${isSelected ? 'checked' : ''}>
+            <label class="sheet-checkbox ${isSelected ? 'selected' : ''}">
+                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSheet('${safeSheet}')">
                 <span>📋 ${sheet}</span>
             </label>
         `;

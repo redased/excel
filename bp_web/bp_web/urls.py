@@ -9,8 +9,6 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('excel_creator.urls')),
-    path('ai/', include('bp_ai.urls')),
-]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('api/ai/', include('bp_ai.urls')),
+    path('api/scraper/', include('bp_scraper.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

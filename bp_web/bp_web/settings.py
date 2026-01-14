@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'excel_creator',
     'bp_ai',
+    'bp_scraper',
 ]
 
 MIDDLEWARE = [
