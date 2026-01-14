@@ -83,17 +83,26 @@ class MultiModeConsolidationAPIView(View):
             wb = Workbook()
             default_sheet = wb.active
             
+            # Parse options
+            options_str = request.POST.get('options', '{}')
+            try:
+                options = json.loads(options_str)
+            except:
+                options = {}
+            
             # Dispatch to appropriate handler
             if mode == 'simple':
                 self._consolidate_simple(wb, files, sheet_name)
             elif mode == 'synthesis':
-                self._consolidate_synthesis(wb, files, sheet_name)
+                self._consolidate_synthesis(wb, files, sheet_name, options.get('synthesis', {}))
             elif mode == 'statistics':
-                self._consolidate_statistics(wb, files, sheet_name)
+                self._consolidate_statistics(wb, files, sheet_name, options.get('stats', {}))
             elif mode == 'graphs':
-                self._consolidate_graphs(wb, files, sheet_name)
+                self._consolidate_graphs(wb, files, sheet_name, options.get('charts', {}))
             elif mode == 'complete':
-                self._consolidate_complete(wb, files, sheet_name)
+                # Get complete options which includes subsections
+                comp_opts = options.get('complete', {})
+                self._consolidate_complete(wb, files, sheet_name, options)
             else:
                 self._consolidate_simple(wb, files, sheet_name)
             
@@ -241,10 +250,19 @@ class MultiModeConsolidationAPIView(View):
                         
                         current_row += 1
                     
-                    # Copy column widths
-                    for col_letter, col_dim in src_ws.column_dimensions.items():
-                        if col_dim.width:
-                            ws.column_dimensions[col_letter].width = col_dim.width
+                    # Auto-fit column widths based on content
+                    for col_idx in range(1, max_cols + 1):
+                        max_length = 0
+                        col_letter = get_column_letter(col_idx)
+                        for row in ws.iter_rows(min_col=col_idx, max_col=col_idx, min_row=1, max_row=ws.max_row):
+                            for cell in row:
+                                if cell.value:
+                                    cell_length = len(str(cell.value))
+                                    max_length = max(max_length, cell_length)
+                        # Set width with some padding
+                        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+                        if adjusted_width > 8:  # Only adjust if content is significant
+                            ws.column_dimensions[col_letter].width = adjusted_width
                     
                     # Add spacing between files
                     current_row += 2
@@ -255,13 +273,21 @@ class MultiModeConsolidationAPIView(View):
                 except Exception as e:
                     ws.cell(row=current_row, column=1, value=f"Erreur: {f.name} - {str(e)}")
                     current_row += 2
+                    current_row += 2
     
     # =====================================
     # MODE 2: SYNTHESIS (Comparaison)
     # =====================================
     
-    def _consolidate_synthesis(self, wb, files, target_sheet=''):
+    def _consolidate_synthesis(self, wb, files, target_sheet='', options=None):
         """Create summary and comparison between sites"""
+        if options is None: options = {}
+        
+        # Default to True if no options provided or specific key missing
+        show_recap = options.get('recap', True) if options else True
+        show_compare = options.get('compare', True) if options else True
+        # show_diff = options.get('diff', False) 
+        # show_rank = options.get('rank', False)
         
         # First, do simple consolidation
         self._consolidate_simple(wb, files, target_sheet)
@@ -323,11 +349,33 @@ class MultiModeConsolidationAPIView(View):
     # MODE 3: STATISTICS
     # =====================================
     
-    def _consolidate_statistics(self, wb, files, target_sheet=''):
+    def _consolidate_statistics(self, wb, files, target_sheet='', options=None):
         """Add statistical calculations"""
+        if options is None: options = {}
+        
+        # Options
+        show_sum = options.get('sum', True)
+        show_avg = options.get('avg', True)
+        show_min = options.get('min', True)
+        show_max = options.get('max', True)
+        show_count = options.get('count', False)
+        show_stdev = options.get('stdev', False)
+        show_median = options.get('median', False)
+        show_mode = options.get('mode', False)
+        show_var = options.get('var', False)
+        show_range = options.get('range', False)
+        show_q1 = options.get('q1', False)
+        show_q2 = options.get('q2', False)
+        show_q3 = options.get('q3', False)
+        show_iqr = options.get('iqr', False)
+        show_skew = options.get('skew', False)
+        show_kurt = options.get('kurt', False)
+        show_cv = options.get('cv', False)
         
         # First, do synthesis
-        self._consolidate_synthesis(wb, files, target_sheet)
+        # Pass synthesis options if available in options dict (for complete mode)
+        synth_opts = options.get('synthesis', {}) if 'synthesis' in options else {}
+        self._consolidate_synthesis(wb, files, target_sheet, synth_opts)
         
         # Create stats sheet
         stats_ws = wb.create_sheet(title="📈 Statistiques", index=1)
@@ -338,14 +386,35 @@ class MultiModeConsolidationAPIView(View):
         
         stats_ws.cell(row=1, column=1, value="📈 Statistiques par Fichier").font = Font(bold=True, size=14)
         
-        # Headers
-        headers = ['Fichier', 'Somme', 'Moyenne', 'Min', 'Max', 'Écart-type']
+        # Build Headers based on options
+        headers = ['Fichier']
+        if show_sum: headers.append('Somme')
+        if show_avg: headers.append('Moyenne')
+        if show_median: headers.append('Médiane')
+        if show_mode: headers.append('Mode')
+        if show_min: headers.append('Min')
+        if show_max: headers.append('Max')
+        if show_range: headers.append('Étendue')
+        if show_count: headers.append('Nombre')
+        if show_stdev: headers.append('Écart-type')
+        if show_var: headers.append('Variance')
+        if show_cv: headers.append('CV %')
+        if show_q1: headers.append('Q1 (25%)')
+        if show_q2: headers.append('Q2 (50%)')
+        if show_q3: headers.append('Q3 (75%)')
+        if show_iqr: headers.append('IQR')
+        if show_skew: headers.append('Asymétrie')
+        if show_kurt: headers.append('Aplatissement')
+        
         for col, header in enumerate(headers, start=1):
             cell = stats_ws.cell(row=3, column=col, value=header)
             cell.fill = header_fill
             cell.font = header_font
         
         row = 4
+        import statistics
+        import math
+        
         for f in files:
             try:
                 src_wb = load_workbook(f, data_only=True)
@@ -359,14 +428,66 @@ class MultiModeConsolidationAPIView(View):
                                 all_values.append(cell.value)
                 
                 if all_values:
-                    import statistics
-                    stats_ws.cell(row=row, column=1, value=f.name)
-                    stats_ws.cell(row=row, column=2, value=sum(all_values))
-                    stats_ws.cell(row=row, column=3, value=statistics.mean(all_values))
-                    stats_ws.cell(row=row, column=4, value=min(all_values))
-                    stats_ws.cell(row=row, column=5, value=max(all_values))
+                    col = 1
+                    stats_ws.cell(row=row, column=col, value=f.name); col += 1
+                    
+                    if show_sum: stats_ws.cell(row=row, column=col, value=sum(all_values)); col += 1
+                    if show_avg: stats_ws.cell(row=row, column=col, value=statistics.mean(all_values)); col += 1
+                    if show_median: stats_ws.cell(row=row, column=col, value=statistics.median(all_values)); col += 1
+                    if show_mode: 
+                        try: stats_ws.cell(row=row, column=col, value=statistics.mode(all_values))
+                        except: stats_ws.cell(row=row, column=col, value="N/A")
+                        col += 1
+                    if show_min: stats_ws.cell(row=row, column=col, value=min(all_values)); col += 1
+                    if show_max: stats_ws.cell(row=row, column=col, value=max(all_values)); col += 1
+                    if show_range: stats_ws.cell(row=row, column=col, value=max(all_values) - min(all_values)); col += 1
+                    if show_count: stats_ws.cell(row=row, column=col, value=len(all_values)); col += 1
+                    
+                    stdev_val = 0
                     if len(all_values) > 1:
-                        stats_ws.cell(row=row, column=6, value=statistics.stdev(all_values))
+                        stdev_val = statistics.stdev(all_values)
+                    
+                    if show_stdev: stats_ws.cell(row=row, column=col, value=stdev_val); col += 1
+                    if show_var: stats_ws.cell(row=row, column=col, value=statistics.variance(all_values) if len(all_values) > 1 else 0); col += 1
+                    if show_cv: 
+                        mean_val = statistics.mean(all_values)
+                        cv = (stdev_val / mean_val * 100) if mean_val != 0 else 0
+                        stats_ws.cell(row=row, column=col, value=cv); col += 1
+                    
+                    if show_q1 or show_q2 or show_q3 or show_iqr:
+                        sorted_vals = sorted(all_values)
+                        n = len(sorted_vals)
+                        def get_percentile(p):
+                            k = (n - 1) * p
+                            f = math.floor(k)
+                            c = math.ceil(k)
+                            if f == c: return sorted_vals[int(k)]
+                            return sorted_vals[int(f)] * (c - k) + sorted_vals[int(c)] * (k - f)
+                        
+                        q1 = get_percentile(0.25)
+                        q3 = get_percentile(0.75)
+                        
+                        if show_q1: stats_ws.cell(row=row, column=col, value=q1); col += 1
+                        if show_q2: stats_ws.cell(row=row, column=col, value=statistics.median(all_values)); col += 1
+                        if show_q3: stats_ws.cell(row=row, column=col, value=q3); col += 1
+                        if show_iqr: stats_ws.cell(row=row, column=col, value=q3 - q1); col += 1
+
+                    # Helper for moments
+                    if (show_skew or show_kurt) and len(all_values) > 1:
+                         mean = statistics.mean(all_values)
+                         std = statistics.stdev(all_values)
+                         if std > 0:
+                             z_scores = [(x - mean) / std for x in all_values]
+                             if show_skew: 
+                                 skew = sum(z**3 for z in z_scores) / n
+                                 stats_ws.cell(row=row, column=col, value=skew); col += 1
+                             if show_kurt:
+                                 kurt = sum(z**4 for z in z_scores) / n - 3
+                                 stats_ws.cell(row=row, column=col, value=kurt); col += 1
+                         else:
+                             if show_skew: stats_ws.cell(row=row, column=col, value=0); col += 1
+                             if show_kurt: stats_ws.cell(row=row, column=col, value=0); col += 1
+
                     row += 1
                 
                 src_wb.close()
@@ -376,25 +497,39 @@ class MultiModeConsolidationAPIView(View):
         
         # Format numbers
         for r in range(4, row):
-            for c in range(2, 7):
+            for c in range(2, len(headers) + 1):
                 cell = stats_ws.cell(row=r, column=c)
-                if cell.value:
+                if cell.value is not None and isinstance(cell.value, (int, float)):
                     cell.number_format = '#,##0.00'
         
         # Auto-fit
-        for col in range(1, 7):
+        for col in range(1, len(headers) + 1):
             stats_ws.column_dimensions[get_column_letter(col)].width = 18
     
     # =====================================
     # MODE 4: GRAPHS
     # =====================================
     
-    def _consolidate_graphs(self, wb, files, target_sheet=''):
+    def _consolidate_graphs(self, wb, files, target_sheet='', options=None):
         """Add charts and visualizations"""
+        if options is None: options = {}
         
-        # First, do statistics
-        self._consolidate_statistics(wb, files, target_sheet)
+        show_bar = options.get('bar', True)
+        show_line = options.get('line', True)
+        show_pie = options.get('pie', False)
+        show_area = options.get('area', False)
         
+        # First, do statistics (we need data for charts)
+        # We reuse statistics logic but potentially with minimal options if not desired
+        # For simplicity, we assume statistics standard options are needed to get the data sheet
+        # Or better: we rely on the specific 'statistics' sheet being present.
+        # But if this is standalone 'graphs' mode, we must generate stats first.
+        
+        # Check if 'Statistiques' exists, if not generate it
+        if "📈 Statistiques" not in wb.sheetnames:
+             # Basic stats for charting
+             self._consolidate_statistics(wb, files, target_sheet, {'sum': True, 'avg': True, 'min': True, 'max': True})
+
         # Create charts sheet
         charts_ws = wb.create_sheet(title="📉 Graphiques", index=2)
         charts_ws.cell(row=1, column=1, value="📉 Visualisations").font = Font(bold=True, size=14)
@@ -409,56 +544,98 @@ class MultiModeConsolidationAPIView(View):
                 data_rows += 1
         
         if data_rows > 0:
-            # Bar chart for sums
-            bar_chart = BarChart()
-            bar_chart.type = "col"
-            bar_chart.style = 10
-            bar_chart.title = "Comparaison des Sommes"
-            bar_chart.y_axis.title = "Valeur"
-            bar_chart.x_axis.title = "Fichier"
-            
-            data = Reference(stats_ws, min_col=2, min_row=3, max_row=3 + data_rows, max_col=2)
+            current_row = 3
             cats = Reference(stats_ws, min_col=1, min_row=4, max_row=3 + data_rows)
-            bar_chart.add_data(data, titles_from_data=True)
-            bar_chart.set_categories(cats)
-            bar_chart.shape = 4
             
-            charts_ws.add_chart(bar_chart, "A3")
+            if show_bar:
+                # Bar chart for sums (Column 2 usually)
+                bar_chart = BarChart()
+                bar_chart.type = "col"
+                bar_chart.style = 10
+                bar_chart.title = "Comparaison des Sommes"
+                bar_chart.y_axis.title = "Valeur"
+                
+                data = Reference(stats_ws, min_col=2, min_row=3, max_row=3 + data_rows, max_col=2)
+                bar_chart.add_data(data, titles_from_data=True)
+                bar_chart.set_categories(cats)
+                bar_chart.shape = 4
+                
+                charts_ws.add_chart(bar_chart, f"A{current_row}")
+                current_row += 15
             
-            # Line chart for comparison
-            line_chart = LineChart()
-            line_chart.title = "Évolution Min/Max/Moyenne"
-            line_chart.style = 10
-            line_chart.y_axis.title = "Valeur"
-            
-            data2 = Reference(stats_ws, min_col=3, min_row=3, max_row=3 + data_rows, max_col=5)
-            line_chart.add_data(data2, titles_from_data=True)
-            line_chart.set_categories(cats)
-            
-            charts_ws.add_chart(line_chart, "J3")
-    
+            if show_line:
+                # Line chart for comparison (Min/Max/Avg - Cols 3,4,5 usually)
+                line_chart = LineChart()
+                line_chart.title = "Évolution Moyenne/Min/Max"
+                line_chart.style = 10
+                line_chart.y_axis.title = "Valeur"
+                
+                # Assuming standard columns order: Sum(2), Avg(3), Min(4), Max(5)
+                # We try to be safe
+                data2 = Reference(stats_ws, min_col=3, min_row=3, max_row=3 + data_rows, max_col=5)
+                line_chart.add_data(data2, titles_from_data=True)
+                line_chart.set_categories(cats)
+                
+                charts_ws.add_chart(line_chart, f"A{current_row}")
+                current_row += 15
+                
+            if show_pie and data_rows <= 10: # Pie chart only if few items
+                pie_chart = PieChart()
+                pie_chart.title = "Répartition (Somme)"
+                data = Reference(stats_ws, min_col=2, min_row=3, max_row=3 + data_rows) # Sums
+                pie_chart.add_data(data, titles_from_data=True)
+                pie_chart.set_categories(cats)
+                
+                charts_ws.add_chart(pie_chart, f"A{current_row}")
+                current_row += 15
+                
+            if show_area:
+                area_chart = AreaChart()
+                area_chart.title = "Comparaison d'Aires"
+                area_chart.style = 42
+                data = Reference(stats_ws, min_col=2, min_row=3, max_row=3 + data_rows, max_col=2)
+                area_chart.add_data(data, titles_from_data=True)
+                area_chart.set_categories(cats)
+                
+                charts_ws.add_chart(area_chart, f"A{current_row}")
+
     # =====================================
     # MODE 5: COMPLETE
     # =====================================
     
-    def _consolidate_complete(self, wb, files, target_sheet=''):
+    def _consolidate_complete(self, wb, files, target_sheet='', options=None):
         """Complete consolidation with everything"""
-        self._consolidate_graphs(wb, files, target_sheet)
+        if options is None: options = {}
+        comp_opts = options.get('complete', {})
         
-        # Add a dashboard sheet at the beginning
+        # Always do simple first
+        self._consolidate_simple(wb, files, target_sheet)
+        
+        if comp_opts.get('synthesis', True):
+            self._consolidate_synthesis(wb, files, target_sheet, options.get('synthesis', {}))
+            
+        if comp_opts.get('stats', True):
+           self._consolidate_statistics(wb, files, target_sheet, options.get('stats', {}))
+           
+        if comp_opts.get('charts', True):
+           self._consolidate_graphs(wb, files, target_sheet, options.get('charts', {}))
+        
+        # Add a dashboard sheet using existing stats
         dashboard = wb.create_sheet(title="🎯 Dashboard", index=0)
         
         dashboard.cell(row=1, column=1, value="🎯 Dashboard de Consolidation").font = Font(bold=True, size=16, color="1E293B")
         dashboard.merge_cells('A1:E1')
         
         dashboard.cell(row=3, column=1, value=f"📁 Fichiers traités: {len(files)}").font = Font(size=12)
-        dashboard.cell(row=4, column=1, value=f"📋 Feuilles créées: {len(wb.sheetnames)}").font = Font(size=12)
+        dashboard.cell(row=4, column=1, value=f"📋 Feuilles créées: {len(wb.sheetnames)-1}").font = Font(size=12)
         
-        dashboard.cell(row=6, column=1, value="Navigation:").font = Font(bold=True, size=12)
+        dashboard.cell(row=6, column=1, value="Navigation Rapide:").font = Font(bold=True, size=12)
         row = 7
         for sheet_name in wb.sheetnames:
             if sheet_name != "🎯 Dashboard":
-                dashboard.cell(row=row, column=1, value=f"  → {sheet_name}")
+                cell = dashboard.cell(row=row, column=1, value=f"  🔗 {sheet_name}")
+                cell.hyperlink = f"#'{sheet_name}'!A1"
+                cell.font = Font(color="0000FF", underline="single")
                 row += 1
         
         dashboard.column_dimensions['A'].width = 50

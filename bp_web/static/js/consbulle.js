@@ -868,14 +868,18 @@ async function generateConsBulle() {
         return;
     }
 
-    // Check for files
+    // Check for files and prepare them with Responsable names
     let hasFiles = false;
     let allFiles = [];
     consBulleData.responsables.forEach(resp => {
         resp.sites.forEach(site => {
             if (site.file) {
                 hasFiles = true;
-                allFiles.push(site.file);
+                // Create a new File object with modified name to include Responsable
+                // This is a trick to pass metadata to backend via filename
+                const newName = `${resp.name} - ${site.file.name}`;
+                const newFile = new File([site.file], newName, { type: site.file.type });
+                allFiles.push(newFile);
             }
         });
     });
@@ -983,7 +987,12 @@ async function generateWithAllSheets() {
     let allFiles = [];
     consBulleData.responsables.forEach(resp => {
         resp.sites.forEach(site => {
-            if (site.file) allFiles.push(site.file);
+            if (site.file) {
+                // Prepend Responsable Name also for fallback
+                const newName = `${resp.name} - ${site.file.name}`;
+                const newFile = new File([site.file], newName, { type: site.file.type });
+                allFiles.push(newFile);
+            }
         });
     });
 
@@ -1003,6 +1012,10 @@ async function generateWithAllSheets() {
         formData.append('mode', mode);
         formData.append('output_filename', outputName);
         formData.append('sheet_name', ''); // Empty = all sheets
+
+        // Get and append advanced options
+        const options = getModeOptions();
+        formData.append('options', JSON.stringify(options));
 
         allFiles.forEach(file => {
             formData.append('files', file);
