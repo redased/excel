@@ -270,29 +270,45 @@ async function processDroppedFiles(filesByFolder) {
         }
     } catch (error) {
         console.error('Error parsing sheets:', error);
-        // Create structure anyway
-        for (const [folderName, files] of Object.entries(filesByFolder)) {
-            const resp = {
-                id: 'resp_' + Date.now(),
-                name: folderName.replace(/_/g, ' '),
-                sites: []
-            };
+        console.log('Creating structure without API - files will still work');
 
-            files.forEach((file, index) => {
+        // Create structure anyway from local files
+        for (const [folderName, files] of Object.entries(filesByFolder)) {
+            // Skip empty folders or folders with only temp files
+            const validFiles = files.filter(f => !f.name.startsWith('~$'));
+            if (validFiles.length === 0) continue;
+
+            // Check if responsable already exists
+            let resp = consBulleData.responsables.find(r => r.name === folderName.replace(/_/g, ' '));
+
+            if (!resp) {
+                resp = {
+                    id: 'resp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    name: folderName.replace(/_/g, ' '),
+                    sites: []
+                };
+                consBulleData.responsables.push(resp);
+            }
+
+            validFiles.forEach((file, index) => {
                 resp.sites.push({
-                    id: 'site_' + Date.now() + '_' + index,
+                    id: 'site_' + Date.now() + '_' + index + '_' + Math.random().toString(36).substr(2, 5),
                     name: file.name.replace(/\.(xlsx|xls)$/i, '').replace(/_/g, ' '),
                     filename: file.name,
                     file: file,
                     detected_sheets: []
                 });
             });
-
-            consBulleData.responsables.push(resp);
         }
 
         renderResponsables();
         renderSites();
+        renderSheets();
+
+        // Auto-select first responsable
+        if (consBulleData.responsables.length > 0) {
+            selectResponsable(consBulleData.responsables[0].id);
+        }
     }
 }
 
