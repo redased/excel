@@ -226,6 +226,12 @@ async function processDroppedFiles(filesByFolder) {
 
             // Create responsables and sites from folders
             for (const [folderName, files] of Object.entries(filesByFolder)) {
+                // Skip folders with no files
+                if (!files || files.length === 0) {
+                    console.log('Skipping empty folder:', folderName);
+                    continue;
+                }
+
                 // Check if responsable already exists
                 let resp = consBulleData.responsables.find(r => r.name === folderName);
 
