@@ -202,15 +202,34 @@ class MultiModeConsolidationAPIView(View):
                                     color=cell.font.color
                                 )
                             if cell.fill and cell.fill.patternType:
-                                dest_cell.fill = PatternFill(
-                                    patternType=cell.fill.patternType,
-                                    fgColor=cell.fill.fgColor,
-                                    bgColor=cell.fill.bgColor
-                                )
+                                try:
+                                    dest_cell.fill = PatternFill(
+                                        patternType=cell.fill.patternType,
+                                        fgColor=cell.fill.fgColor.rgb if cell.fill.fgColor else None,
+                                        bgColor=cell.fill.bgColor.rgb if cell.fill.bgColor else None
+                                    )
+                                except:
+                                    pass
                             if cell.border:
-                                dest_cell.border = cell.border
+                                try:
+                                    dest_cell.border = Border(
+                                        left=Side(style=cell.border.left.style, color=cell.border.left.color.rgb if cell.border.left.color else None) if cell.border.left else None,
+                                        right=Side(style=cell.border.right.style, color=cell.border.right.color.rgb if cell.border.right.color else None) if cell.border.right else None,
+                                        top=Side(style=cell.border.top.style, color=cell.border.top.color.rgb if cell.border.top.color else None) if cell.border.top else None,
+                                        bottom=Side(style=cell.border.bottom.style, color=cell.border.bottom.color.rgb if cell.border.bottom.color else None) if cell.border.bottom else None
+                                    )
+                                except:
+                                    pass
                             if cell.alignment:
-                                dest_cell.alignment = cell.alignment
+                                try:
+                                    dest_cell.alignment = Alignment(
+                                        horizontal=cell.alignment.horizontal,
+                                        vertical=cell.alignment.vertical,
+                                        wrap_text=cell.alignment.wrap_text,
+                                        shrink_to_fit=cell.alignment.shrink_to_fit
+                                    )
+                                except:
+                                    pass
                             if cell.number_format:
                                 dest_cell.number_format = cell.number_format
                             
