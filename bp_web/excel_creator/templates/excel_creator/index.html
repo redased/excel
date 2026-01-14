@@ -573,20 +573,102 @@
                         </div>
                     </div>
 
-                    <!-- Step 3: Sheets Selection -->
+                    <!-- Step 3: Sheets Configuration -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>📋 Feuilles à inclure</h3>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-secondary" onclick="selectAllSheets()">✓ Toutes</button>
-                                <button class="btn btn-sm btn-secondary" onclick="deselectAllSheets()">✗ Aucune</button>
-                            </div>
+                            <h3>📋 Configuration des Feuilles</h3>
                         </div>
                         <div class="card-body">
-                            <div id="sheets-list" class="consbulle-items">
-                                <div class="empty-state">
-                                    <span>📋</span>
-                                    <p>Chargez des fichiers pour voir les feuilles</p>
+                            <!-- Mode Toggle -->
+                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                <label class="mode-option"
+                                    style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                    <input type="radio" name="sheet-mode" value="auto" checked
+                                        onchange="toggleSheetMode('auto')" style="margin-right: 8px;">
+                                    <strong>🔄 Auto</strong>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Toutes les feuilles
+                                        détectées</p>
+                                </label>
+                                <label class="mode-option"
+                                    style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                    <input type="radio" name="sheet-mode" value="manual"
+                                        onchange="toggleSheetMode('manual')" style="margin-right: 8px;">
+                                    <strong>✏️ Manuel</strong>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Définir colonnes et
+                                        lignes</p>
+                                </label>
+                            </div>
+
+                            <!-- Auto Mode: Sheet List -->
+                            <div id="sheets-mode-auto">
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <button class="btn btn-sm btn-secondary" onclick="selectAllSheets()">✓
+                                        Toutes</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="deselectAllSheets()">✗
+                                        Aucune</button>
+                                </div>
+                                <div id="sheets-list" class="consbulle-items">
+                                    <div class="empty-state">
+                                        <span>📋</span>
+                                        <p>Chargez des fichiers pour voir les feuilles</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Manual Mode: Custom Ranges -->
+                            <div id="sheets-mode-manual" style="display: none;">
+                                <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                                    💡 Ajoutez des configurations d'extraction personnalisées (feuille, colonnes,
+                                    lignes)
+                                </p>
+
+                                <!-- Add Range Form -->
+                                <div
+                                    style="display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                                    <div style="flex: 2; min-width: 120px;">
+                                        <label
+                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Feuille</label>
+                                        <input type="text" id="range-sheet" placeholder="Feuil1"
+                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 60px;">
+                                        <label
+                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
+                                            début</label>
+                                        <input type="text" id="range-col-start" placeholder="A" maxlength="2"
+                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 60px;">
+                                        <label
+                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
+                                            fin</label>
+                                        <input type="text" id="range-col-end" placeholder="Z" maxlength="2"
+                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 60px;">
+                                        <label
+                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
+                                            début</label>
+                                        <input type="number" id="range-row-start" placeholder="1" min="1"
+                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    </div>
+                                    <div style="flex: 1; min-width: 60px;">
+                                        <label
+                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
+                                            fin</label>
+                                        <input type="number" id="range-row-end" placeholder="100" min="1"
+                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="addSheetRange()"
+                                        style="padding: 8px 16px;">+ Ajouter</button>
+                                </div>
+
+                                <!-- Ranges List -->
+                                <div id="sheet-ranges-list">
+                                    <div class="empty-state">
+                                        <span>📋</span>
+                                        <p>Aucune configuration ajoutée</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

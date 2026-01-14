@@ -12,7 +12,9 @@ let consBulleData = {
     selectedResponsable: null,
     selectedSite: null,
     allSheets: [],          // All unique sheets across files
-    selectedSheets: [],      // User-selected sheets
+    selectedSheets: [],      // User-selected sheets (for auto mode)
+    sheetMode: 'auto',       // 'auto' or 'manual'
+    sheetRanges: [],         // Manual ranges: [{sheet, colStart, colEnd, rowStart, rowEnd}]
     savedConfigs: []
 };
 
@@ -607,6 +609,112 @@ function selectAllSheets() {
 function deselectAllSheets() {
     consBulleData.selectedSheets = [];
     renderSheets();
+}
+
+// ============================================
+// SHEET MODE & RANGES (Manual Configuration)
+// ============================================
+
+function toggleSheetMode(mode) {
+    consBulleData.sheetMode = mode;
+    const autoDiv = document.getElementById('sheets-mode-auto');
+    const manualDiv = document.getElementById('sheets-mode-manual');
+
+    if (autoDiv && manualDiv) {
+        if (mode === 'auto') {
+            autoDiv.style.display = 'block';
+            manualDiv.style.display = 'none';
+        } else {
+            autoDiv.style.display = 'none';
+            manualDiv.style.display = 'block';
+        }
+    }
+
+    // Update mode option styling
+    document.querySelectorAll('.mode-option').forEach(label => {
+        const input = label.querySelector('input');
+        if (input && input.checked) {
+            label.style.borderColor = '#3B82F6';
+            label.style.background = '#EFF6FF';
+        } else {
+            label.style.borderColor = '#e2e8f0';
+            label.style.background = 'white';
+        }
+    });
+}
+
+function addSheetRange() {
+    const sheet = document.getElementById('range-sheet')?.value?.trim() || 'Feuil1';
+    const colStart = document.getElementById('range-col-start')?.value?.toUpperCase()?.trim() || 'A';
+    const colEnd = document.getElementById('range-col-end')?.value?.toUpperCase()?.trim() || 'Z';
+    const rowStart = parseInt(document.getElementById('range-row-start')?.value) || 1;
+    const rowEnd = parseInt(document.getElementById('range-row-end')?.value) || 100;
+
+    // Validate
+    if (!sheet) {
+        alert('Veuillez saisir un nom de feuille');
+        return;
+    }
+
+    // Add range
+    consBulleData.sheetRanges.push({
+        id: 'range_' + Date.now(),
+        sheet: sheet,
+        colStart: colStart,
+        colEnd: colEnd,
+        rowStart: rowStart,
+        rowEnd: rowEnd
+    });
+
+    // Clear inputs
+    document.getElementById('range-sheet').value = '';
+    document.getElementById('range-col-start').value = '';
+    document.getElementById('range-col-end').value = '';
+    document.getElementById('range-row-start').value = '';
+    document.getElementById('range-row-end').value = '';
+
+    renderSheetRanges();
+}
+
+function removeSheetRange(rangeId) {
+    consBulleData.sheetRanges = consBulleData.sheetRanges.filter(r => r.id !== rangeId);
+    renderSheetRanges();
+}
+
+function renderSheetRanges() {
+    const container = document.getElementById('sheet-ranges-list');
+    if (!container) return;
+
+    if (consBulleData.sheetRanges.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span>📋</span>
+                <p>Aucune configuration ajoutée</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    consBulleData.sheetRanges.forEach(range => {
+        html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f1f5f9; border-radius: 8px;">
+                <div>
+                    <strong style="color: #1E293B;">📋 ${range.sheet}</strong>
+                    <span style="color: #64748b; font-size: 12px; margin-left: 12px;">
+                        Colonnes: ${range.colStart} → ${range.colEnd} | Lignes: ${range.rowStart} → ${range.rowEnd}
+                    </span>
+                </div>
+                <button onclick="removeSheetRange('${range.id}')" 
+                    style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer;">
+                    🗑️
+                </button>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
 }
 
 // ============================================
