@@ -1,5 +1,6 @@
 /**
  * Bubbles Consolidation - Interactive bubble-based Excel consolidation
+ * Version 2 - Fixed drag & drop
  */
 
 // Global state for bubbles
@@ -8,9 +9,11 @@ let bubbleData = {
 };
 
 let droppedItems = [];
+let draggedData = null;
 
 // Initialize bubbles functionality
 document.addEventListener('DOMContentLoaded', function () {
+    console.log('Bubbles module loaded');
     initBubbleUpload();
     initDropZone();
 });
@@ -23,23 +26,31 @@ function initBubbleUpload() {
     const folderZone = document.getElementById('folder-drop-zone');
     const fileInput = document.getElementById('bubble-files');
 
-    if (!folderZone || !fileInput) return;
+    if (!folderZone || !fileInput) {
+        console.log('Bubble upload elements not found');
+        return;
+    }
+
+    console.log('Initializing bubble upload');
 
     // Click to upload
     folderZone.addEventListener('click', () => fileInput.click());
 
-    // Drag & drop
+    // Drag & drop for files
     folderZone.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         folderZone.classList.add('dragover');
     });
 
-    folderZone.addEventListener('dragleave', () => {
+    folderZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
         folderZone.classList.remove('dragover');
     });
 
     folderZone.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         folderZone.classList.remove('dragover');
         handleFileDrop(e.dataTransfer);
     });
@@ -80,11 +91,12 @@ async function handleFileSelect(fileList) {
 }
 
 async function parseFiles(files) {
+    console.log('Parsing files:', files.length);
+
     // Group files by folder (responsable)
     const groupedFiles = {};
 
     files.forEach(file => {
-        // Try to extract responsable from path
         const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split('/') : [file.name];
         const responsable = pathParts.length > 1 ? pathParts[pathParts.length - 2] : 'Responsable';
 
@@ -94,7 +106,7 @@ async function parseFiles(files) {
         groupedFiles[responsable].push(file);
     });
 
-    // Upload and parse files
+    // Try API first, fallback to local
     const formData = new FormData();
     files.forEach((file, index) => {
         formData.append('files', file);
@@ -115,7 +127,6 @@ async function parseFiles(files) {
             bubbleData = data;
             renderBubbleTree();
         } else {
-            // Fallback: create structure from file names
             createLocalBubbleStructure(groupedFiles);
         }
     } catch (error) {
@@ -142,8 +153,8 @@ function createLocalBubbleStructure(groupedFiles) {
                 filename: file.name,
                 file: file,
                 sheets: [
-                    { id: 'sh_1_' + index, name: 'Branche', columns: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] },
-                    { id: 'sh_2_' + index, name: 'Coût Service', columns: ['A', 'B', 'C', 'D', 'E'] }
+                    { id: 'sh_1_' + index, name: 'Branche', columns: ['A', 'B', 'C', 'D', 'E', 'F'] },
+                    { id: 'sh_2_' + index, name: 'Cout Service', columns: ['A', 'B', 'C', 'D', 'E'] }
                 ]
             });
         });
@@ -151,6 +162,7 @@ function createLocalBubbleStructure(groupedFiles) {
         bubbleData.responsables.push(respData);
     }
 
+    console.log('Local bubble structure created:', bubbleData.responsables.length, 'responsables');
     renderBubbleTree();
 }
 
@@ -160,7 +172,10 @@ function createLocalBubbleStructure(groupedFiles) {
 
 function renderBubbleTree() {
     const container = document.getElementById('bubble-tree');
-    if (!container) return;
+    if (!container) {
+        console.error('bubble-tree container not found');
+        return;
+    }
 
     if (bubbleData.responsables.length === 0) {
         container.innerHTML = `
@@ -181,8 +196,8 @@ function renderBubbleTree() {
                     <button class="bubble-toggle" onclick="toggleBubbleGroup(this)">▼</button>
                     <div class="bubble bubble-responsable" 
                          draggable="true" 
-                         ondragstart="handleDragStart(event, 'responsable', '${resp.id}')"
-                         ondragend="handleDragEnd(event)">
+                         data-type="responsable"
+                         data-id="${resp.id}">
                         👤 ${resp.name}
                         <span class="bubble-count">${resp.sites.length} sites</span>
                     </div>
@@ -197,8 +212,9 @@ function renderBubbleTree() {
                         <button class="bubble-toggle" onclick="toggleBubbleGroup(this)">▼</button>
                         <div class="bubble bubble-site" 
                              draggable="true"
-                             ondragstart="handleDragStart(event, 'site', '${site.id}', '${resp.id}')"
-                             ondragend="handleDragEnd(event)">
+                             data-type="site"
+                             data-id="${site.id}"
+                             data-parent="${resp.id}">
                             📄 ${site.name}
                         </div>
                     </div>
@@ -212,9 +228,9 @@ function renderBubbleTree() {
                             <button class="bubble-toggle" onclick="toggleBubbleGroup(this)">▼</button>
                             <div class="bubble bubble-sheet" 
                                  draggable="true"
-                                 ondragstart="handleDragStart(event, 'sheet', '${sheet.id}', '${site.id}')"
-                                 ondragend="handleDragEnd(event)"
-                                 onclick="showColumnSelector(event, '${sheet.id}')">
+                                 data-type="sheet"
+                                 data-id="${sheet.id}"
+                                 data-parent="${site.id}">
                                 📋 ${sheet.name}
                             </div>
                         </div>
@@ -222,8 +238,9 @@ function renderBubbleTree() {
                             ${sheet.columns.map(col => `
                                 <div class="bubble bubble-column" 
                                      draggable="true"
-                                     ondragstart="handleDragStart(event, 'column', '${sheet.id}_${col}', '${sheet.id}')"
-                                     ondragend="handleDragEnd(event)">
+                                     data-type="column"
+                                     data-id="${sheet.id}_${col}"
+                                     data-parent="${sheet.id}">
                                     ${col}
                                 </div>
                             `).join('')}
@@ -245,6 +262,21 @@ function renderBubbleTree() {
     });
 
     container.innerHTML = html;
+
+    // Attach drag events to all bubbles
+    attachDragEvents();
+
+    console.log('Bubble tree rendered with', bubbleData.responsables.length, 'responsables');
+}
+
+function attachDragEvents() {
+    const bubbles = document.querySelectorAll('.bubble[draggable="true"]');
+    console.log('Attaching drag events to', bubbles.length, 'bubbles');
+
+    bubbles.forEach(bubble => {
+        bubble.addEventListener('dragstart', handleDragStart);
+        bubble.addEventListener('dragend', handleDragEnd);
+    });
 }
 
 function toggleBubbleGroup(button) {
@@ -259,11 +291,17 @@ function toggleBubbleGroup(button) {
 // DRAG & DROP
 // ============================================
 
-let draggedData = null;
+function handleDragStart(event) {
+    const bubble = event.target;
+    const type = bubble.dataset.type;
+    const id = bubble.dataset.id;
+    const parentId = bubble.dataset.parent || null;
 
-function handleDragStart(event, type, id, parentId = null) {
-    event.target.classList.add('dragging');
+    console.log('Drag started:', type, id);
+
+    bubble.classList.add('dragging');
     draggedData = { type, id, parentId };
+
     event.dataTransfer.setData('text/plain', JSON.stringify(draggedData));
     event.dataTransfer.effectAllowed = 'copy';
 }
@@ -271,38 +309,70 @@ function handleDragStart(event, type, id, parentId = null) {
 function handleDragEnd(event) {
     event.target.classList.remove('dragging');
     draggedData = null;
+    console.log('Drag ended');
 }
 
 function initDropZone() {
     const dropZone = document.getElementById('design-drop-zone');
-    if (!dropZone) return;
+    if (!dropZone) {
+        console.log('Drop zone not found');
+        return;
+    }
+
+    console.log('Initializing drop zone');
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         dropZone.classList.add('dragover');
     });
 
-    dropZone.addEventListener('dragleave', () => {
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
         dropZone.classList.remove('dragover');
     });
 
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         dropZone.classList.remove('dragover');
 
-        if (draggedData) {
-            addDroppedItem(draggedData);
+        console.log('Item dropped, draggedData:', draggedData);
+
+        // Try to get data from dataTransfer first
+        let data = draggedData;
+        if (!data) {
+            try {
+                const text = e.dataTransfer.getData('text/plain');
+                if (text) {
+                    data = JSON.parse(text);
+                }
+            } catch (err) {
+                console.error('Could not parse dropped data:', err);
+            }
+        }
+
+        if (data) {
+            addDroppedItem(data);
+        } else {
+            console.warn('No data to drop');
         }
     });
 }
 
 function addDroppedItem(data) {
+    console.log('Adding dropped item:', data);
+
     // Find the actual item data
     let itemInfo = findItemById(data.type, data.id, data.parentId);
-    if (!itemInfo) return;
+    if (!itemInfo) {
+        console.warn('Item not found:', data);
+        return;
+    }
 
     // Check if already added
     if (droppedItems.find(i => i.id === data.id)) {
+        console.log('Item already added');
         return;
     }
 
@@ -311,6 +381,7 @@ function addDroppedItem(data) {
         info: itemInfo
     });
 
+    console.log('Dropped items now:', droppedItems.length);
     renderDroppedItems();
     updateGenerateButton();
 }
@@ -322,11 +393,15 @@ function findItemById(type, id, parentId) {
         }
         for (const site of resp.sites) {
             if (type === 'site' && site.id === id) {
-                return { name: site.name, type: 'site', responsable: resp.name, sheets: site.sheets.length };
+                return { name: site.name, type: 'site', responsable: resp.name, sheets: site.sheets.length, file: site.file };
             }
             for (const sheet of site.sheets) {
                 if (type === 'sheet' && sheet.id === id) {
                     return { name: sheet.name, type: 'sheet', site: site.name, responsable: resp.name };
+                }
+                if (type === 'column' && id.startsWith(sheet.id)) {
+                    const colName = id.replace(sheet.id + '_', '');
+                    return { name: colName, type: 'column', sheet: sheet.name, site: site.name };
                 }
             }
         }
@@ -338,6 +413,11 @@ function renderDroppedItems() {
     const container = document.getElementById('dropped-items');
     const placeholder = document.getElementById('drop-placeholder');
 
+    if (!container || !placeholder) {
+        console.error('Drop zone containers not found');
+        return;
+    }
+
     if (droppedItems.length === 0) {
         container.innerHTML = '';
         placeholder.classList.remove('hidden');
@@ -348,14 +428,14 @@ function renderDroppedItems() {
 
     let html = '';
     droppedItems.forEach((item, index) => {
-        const iconClass = item.type;
         const icon = item.type === 'responsable' ? '👤' :
-            item.type === 'site' ? '📄' : '📋';
+            item.type === 'site' ? '📄' :
+                item.type === 'sheet' ? '📋' : '📊';
 
         html += `
             <div class="dropped-item" data-index="${index}">
                 <div class="dropped-item-info">
-                    <div class="dropped-item-icon ${iconClass}">${icon}</div>
+                    <div class="dropped-item-icon ${item.type}">${icon}</div>
                     <div class="dropped-item-details">
                         <h4>${item.info.name}</h4>
                         <span>${getItemDescription(item)}</span>
@@ -377,6 +457,8 @@ function getItemDescription(item) {
             return `${item.info.responsable} • ${item.info.sheets} feuilles`;
         case 'sheet':
             return `${item.info.responsable} → ${item.info.site}`;
+        case 'column':
+            return `${item.info.sheet} → ${item.info.site}`;
         default:
             return '';
     }
@@ -467,10 +549,4 @@ function getCSRFToken() {
         }
     }
     return '';
-}
-
-function showColumnSelector(event, sheetId) {
-    event.stopPropagation();
-    // TODO: Implement column selection modal
-    console.log('Show column selector for sheet:', sheetId);
 }
