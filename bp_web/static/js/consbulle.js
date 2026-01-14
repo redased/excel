@@ -817,9 +817,28 @@ async function generateConsBulle() {
     }
 
     const btn = document.getElementById('btn-generate-consbulle');
+    let progressInterval = null;
+    let progress = 0;
+
+    // Start animated progress
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ Génération...';
+        btn.textContent = '⏳ 0%';
+        progress = 0;
+        progressInterval = setInterval(() => {
+            // Slow down as we approach 90%
+            if (progress < 30) {
+                progress += Math.random() * 8;
+            } else if (progress < 60) {
+                progress += Math.random() * 5;
+            } else if (progress < 85) {
+                progress += Math.random() * 2;
+            } else if (progress < 95) {
+                progress += Math.random() * 0.5;
+            }
+            progress = Math.min(progress, 95);
+            btn.textContent = `⏳ ${Math.round(progress)}%`;
+        }, 200);
     }
 
     try {
@@ -844,6 +863,12 @@ async function generateConsBulle() {
             }
         });
 
+        // Complete progress
+        if (btn) {
+            clearInterval(progressInterval);
+            btn.textContent = '⏳ 100%';
+        }
+
         if (response.ok) {
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -852,14 +877,26 @@ async function generateConsBulle() {
             a.download = `${consBulleData.outputFilename}.xlsx`;
             a.click();
             window.URL.revokeObjectURL(url);
+
+            if (btn) btn.textContent = '✅ Terminé!';
+            setTimeout(() => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '📥 Générer Excel';
+                }
+            }, 1500);
         } else {
             const error = await response.json();
             alert('Erreur: ' + (error.error || 'Génération échouée'));
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '📥 Générer Excel';
+            }
         }
     } catch (error) {
         console.error('Error:', error);
         alert('Erreur: ' + error.message);
-    } finally {
+        if (progressInterval) clearInterval(progressInterval);
         if (btn) {
             btn.disabled = false;
             btn.textContent = '📥 Générer Excel';
