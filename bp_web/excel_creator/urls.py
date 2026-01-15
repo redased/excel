@@ -5,6 +5,7 @@ from django.urls import path
 from . import views
 from . import consbulle_api
 from . import consolidation_modes
+from . import verify_api
 
 app_name = 'excel_creator'
 
@@ -41,6 +42,7 @@ urlpatterns = [
     
     # Parse Excel sheets
     path('api/consbulle/parse-sheets/', consbulle_api.ParseExcelSheetsAPIView.as_view(), name='consbulle_parse_sheets'),
+    path('api/consbulle/analyze-structure/', consbulle_api.AnalyzeStructureAPIView.as_view(), name='consbulle_analyze_structure'),
     
     # Generate Excel V2 with format preservation
     path('api/consbulle/generate/', consbulle_api.GenerateConsBulleV2APIView.as_view(), name='consbulle_generate_v2'),
@@ -50,5 +52,22 @@ urlpatterns = [
     # ============================================
     path('api/consolidation/modes/', consolidation_modes.ConsolidationModesAPIView.as_view(), name='consolidation_modes'),
     path('api/consolidation/generate/', consolidation_modes.MultiModeConsolidationAPIView.as_view(), name='consolidation_generate'),
+    
+    # ============================================
+    # File Preparation Module APIs
+    # ============================================
+    path('api/prep-file/analyze/', views.PrepFileAnalyzeAPIView.as_view(), name='prep_file_analyze'),
+    path('api/prep-file/generate/', views.PrepFileGenerateAPIView.as_view(), name='prep_file_generate'),
+    
+    # ============================================
+    # File Verification/Test APIs
+    # ============================================
+    path('api/verify/compare/', verify_api.FileCompareAPIView.as_view(), name='verify_compare'),
+    path('api/verify/correct/', verify_api.FileCorrectAPIView.as_view(), name='verify_correct'),
+    path('api/verify/preview/', verify_api.FilePreviewAPIView.as_view(), name='verify_preview'),
+    
+    # Test Consolidation
+    path('api/sheet-content/', views.GetSheetContentAPIView.as_view(), name='sheet_content'),
+    path('api/preview-consolidation/', views.PreviewConsolidationAPIView.as_view(), name='preview_consolidation'),
 ]
 

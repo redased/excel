@@ -265,9 +265,20 @@ class ParseExcelSheetsAPIView(View):
             all_sheets = set()
             file_sheets = {}
             
+            # Ensure upload directory exists
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            
             for f in files:
                 try:
-                    wb = load_workbook(f, read_only=True)
+                    # Save file to disk for Preview access
+                    filepath = upload_dir / f.name
+                    with open(filepath, 'wb+') as dest:
+                        for chunk in f.chunks():
+                            dest.write(chunk)
+                    
+                    # Read sheets using read_only mode
+                    wb = load_workbook(filepath, read_only=True, keep_links=False)
                     sheets = wb.sheetnames
                     file_sheets[f.name] = sheets
                     all_sheets.update(sheets)
@@ -284,6 +295,99 @@ class ParseExcelSheetsAPIView(View):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AnalyzeStructureAPIView(View):
+    """Analyze Excel structure to suggest fixed headers"""
+    
+    def post(self, request):
+        try:
+            scan_depth = int(request.POST.get('scan_depth', 50))
+            filenames = request.POST.getlist('filenames')
+            
+            sheet_configs = {} # { filename: { sheetname: { row: 2, col: 'B' } } }
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads"
+            
+            for filename in filenames:
+                filepath = upload_dir / filename
+                if not filepath.exists():
+                    continue
+                    
+                try:
+                    wb = load_workbook(filepath, read_only=True, data_only=True)
+                    sheet_configs[filename] = {}
+                    
+                    for sheet_name in wb.sheetnames:
+                        ws = wb[sheet_name]
+                        
+                        # 1. Detect Fixed Rows (Header)
+                        # Heuristic: Find first row where > 50% of cells are numeric
+                        fixed_row = 1
+                        numeric_count = 0
+                        total_cells = 0
+                        
+                        # Scan rows up to scan_depth
+                        for row_idx, row in enumerate(ws.iter_rows(min_row=1, max_row=scan_depth, max_col=20)):
+                            r = row_idx + 1
+                            row_numerics = 0
+                            row_total = 0
+                            
+                            for cell in row:
+                                if cell.value is None: continue
+                                row_total += 1
+                                if isinstance(cell.value, (int, float)):
+                                    row_numerics += 1
+                            
+                            # If row is mostly numeric (>50%), we found the data start
+                            # So fixed header is the previous row
+                            if row_total > 0 and (row_numerics / row_total) > 0.5:
+                                fixed_row = max(1, r - 1)
+                                break
+                            
+                            # Fallback if no numeric row found deep enough: assume 1
+                            fixed_row = r 
+
+                        # 2. Detect Fixed Cols (Key)
+                        # Heuristic: Find first col where > 50% of cells are numeric
+                        fixed_col_idx = 1
+                        
+                        # Scan cols up to scan_depth (or 20 max)
+                        max_scan_col = min(scan_depth, 20)
+                        for col_idx in range(1, max_scan_col + 1):
+                            col_numerics = 0
+                            col_total = 0
+                            col_letter = get_column_letter(col_idx)
+                            
+                            # Check first 20 rows of this column
+                            for row in ws.iter_rows(min_row=1, max_row=20, min_col=col_idx, max_col=col_idx):
+                                cell = row[0]
+                                if cell.value is None: continue
+                                col_total += 1
+                                if isinstance(cell.value, (int, float)):
+                                    col_numerics += 1
+                            
+                            # If column is mostly numeric, it's DATA. So fixed cols end at previous col.
+                            if col_total > 0 and (col_numerics / col_total) > 0.5:
+                                fixed_col_idx = max(1, col_idx - 1)
+                                break
+                            
+                            fixed_col_idx = col_idx
+
+                        sheet_configs[filename][sheet_name] = {
+                            'row': fixed_row,
+                            'col': get_column_letter(fixed_col_idx)
+                        }
+                        
+                    wb.close()
+                except Exception as e:
+                    print(f"Error analyzing {filename}: {e}")
+            
+            return JsonResponse({'success': True, 'sheet_configs': sheet_configs})
+            
+        except Exception as e:
+             return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ============================================
 # GENERATE EXCEL WITH FORMAT PRESERVATION
 # ============================================
@@ -297,6 +401,7 @@ class GenerateConsBulleV2APIView(View):
             config_str = request.POST.get('config', '{}')
             config_data = json.loads(config_str)
             output_filename = config_data.get('output_filename', 'Consolidation')
+            selected_sheets = config_data.get('selected_sheets', [])
             files = request.FILES.getlist('files')
             
             # Parse file mappings
@@ -308,6 +413,11 @@ class GenerateConsBulleV2APIView(View):
             
             # Group data by sheet name
             sheets_data = {} # { 'SheetName': [ (SiteName, SrcFile), ... ] }
+            
+            # Initialize Destination Workbook
+            wb = Workbook()
+            if wb.active:
+                wb.remove(wb.active)
             
             # Map uploaded files
             uploaded_files = {f.name: f for f in files}
@@ -342,67 +452,110 @@ class GenerateConsBulleV2APIView(View):
                         except Exception as e:
                             print(f"Error reading {filename}: {e}")
 
+            # Parse per-sheet configs
+            sheet_configs = config_data.get('sheet_configs', {})
+
             # 2. Process each grouped sheet
             for sheet_name, sources in sheets_data.items():
-                dest_ws = wb.create_sheet(title=sheet_name[:31])
-                current_row_val = 1
+                if not sources: continue
                 
-                for src_info in sources:
+                # Use the first source as the TEMPLATE (Base)
+                base_info = sources[0]
+                base_filename = base_info['filename']
+                base_file = uploaded_files[base_filename]
+                base_file.seek(0)
+                base_wb = load_workbook(base_file)
+                base_ws = base_wb[sheet_name]
+                
+                # Create Destination Sheet (Copy of Base)
+                dest_ws = wb.create_sheet(title=sheet_name[:31])
+                
+                # Copy Base Content & Styles
+                for row in base_ws.iter_rows():
+                    for cell in row:
+                        dest_cell = dest_ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                        if cell.has_style:
+                            dest_cell.font = copy_font(cell.font)
+                            dest_cell.border = copy_border(cell.border)
+                            dest_cell.fill = copy_fill(cell.fill)
+                            dest_cell.number_format = cell.number_format
+                            dest_cell.alignment = copy_alignment(cell.alignment)
+                
+                # Copy Dimensions
+                for col_letter, col_dim in base_ws.column_dimensions.items():
+                    dest_ws.column_dimensions[col_letter].width = col_dim.width
+                
+                # Copy Merges
+                for merged in base_ws.merged_cells.ranges:
+                    dest_ws.merge_cells(str(merged))
+
+                base_wb.close()
+                base_file.seek(0)
+
+                # SUMMATION: Iterate through other sources
+                for src_info in sources[1:]:
                     filename = src_info['filename']
-                    site_name = src_info['site_name']
                     
+                    # GET SHEET SPECIFIC CONFIG OR DEFAULT
+                    fix_row_start, fix_row_end = 1, 2
+                    fix_col_start, fix_col_end = 1, 2
+                    
+                    if filename in sheet_configs and sheet_name in sheet_configs[filename]:
+                        try:
+                            sc = sheet_configs[filename][sheet_name]
+                            fix_row_start = int(sc.get('row_start', 1))
+                            fix_row_end = int(sc.get('row_end', 2))
+                            fix_col_start = column_index_from_string(sc.get('col_start', 'A'))
+                            fix_col_end = column_index_from_string(sc.get('col_end', 'B'))
+                        except:
+                            pass # fallback to default
+
                     src_file = uploaded_files[filename]
-                    src_file.seek(0) 
-                    src_wb = load_workbook(src_file) # Read/Write mode for accessing styles properly
+                    src_file.seek(0)
+                    src_wb = load_workbook(src_file, data_only=True) # Read values for summation
+                    
+                    if sheet_name not in src_wb.sheetnames:
+                        src_wb.close()
+                        continue
+                        
                     src_ws = src_wb[sheet_name]
-                    
-                    # A. Add Site Header
-                    header_cell = dest_ws.cell(row=current_row_val, column=1, value=f"📍 {site_name}")
-                    header_cell.font = Font(bold=True, size=14, color="3b82f6") # Blue header
-                    current_row_val += 2
-                    
-                    # B. Copy Content
-                    max_col = src_ws.max_column
-                    max_row = src_ws.max_row
-                    
-                    # Copy Cells
+
+                    # Iterate cells in source
                     for row in src_ws.iter_rows():
                         for cell in row:
-                            new_row = current_row_val + cell.row - 1
-                            new_col = cell.column
+                            r, c = cell.row, cell.column
                             
-                            dest_cell = dest_ws.cell(row=new_row, column=new_col, value=cell.value)
+                            # CHECK FIXED ZONES
+                            in_fixed_rows = (fix_row_start <= r <= fix_row_end)
+                            in_fixed_cols = (fix_col_start <= c <= fix_col_end)
                             
-                            # styles
-                            if cell.has_style:
-                                dest_cell.font = copy_font(cell.font)
-                                dest_cell.border = copy_border(cell.border)
-                                dest_cell.fill = copy_fill(cell.fill)
-                                dest_cell.number_format = cell.number_format
-                                dest_cell.alignment = copy_alignment(cell.alignment)
+                            if in_fixed_rows or in_fixed_cols:
+                                continue # Skip fixed zones (keep base value)
+                            
+                            # Get Destination Cell
+                            dest_cell = dest_ws.cell(row=r, column=c)
+                            
+                            # CHECK FORMULA / PERCENTAGE in Destination
+                            # If dest has formula (starts with =), DO NOT OVERWRITE/SUM
+                            if isinstance(dest_cell.value, str) and dest_cell.value.startswith('='):
+                                continue
+                                
+                            # Check Percentage Formatting
+                            if dest_cell.number_format and '%' in dest_cell.number_format:
+                                continue
+                                
+                            # SUMMATION LOGIC
+                            try:
+                                src_val = cell.value
+                                dest_val = dest_cell.value
+                                
+                                if isinstance(src_val, (int, float)) and isinstance(dest_val, (int, float)):
+                                    dest_cell.value = dest_val + src_val
+                            except:
+                                pass # formatting or type error, keep base value
                     
-                    # Handle Merged Cells
-                    for merged in src_ws.merged_cells.ranges:
-                        # Shift range by current_row_val - 1
-                        min_col, min_row, max_col, max_row = merged.bounds
-                        new_min_row = min_row + current_row_val - 1
-                        new_max_row = max_row + current_row_val - 1
-                        dest_ws.merge_cells(start_row=new_min_row, start_column=min_col, 
-                                          end_row=new_max_row, end_column=max_col)
-                    
-                    # Copy Dimensions (Only for the first source, or max logic? Stacking implies sharing columns)
-                    # Issue: If Site A Col A is wide, and Site B Col A is narrow...
-                    # Strategy: Take the max width encountered or just keep first. 
-                    # Let's keep first for now or update if larger.
-                    for col_letter, col_dim in src_ws.column_dimensions.items():
-                        dest_col = dest_ws.column_dimensions[col_letter]
-                        if not dest_col.width or (col_dim.width and col_dim.width > dest_col.width):
-                             dest_col.width = col_dim.width
-
                     src_wb.close()
-                    
-                    # Increment row for next site
-                    current_row_val += max_row + 2 # +2 spacer
+                    src_file.seek(0)
             
             # Ensure at least one sheet exists
             if len(wb.sheetnames) == 0:

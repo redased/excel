@@ -131,6 +131,141 @@
     transform: scale(1.02);
 }
 
+/* ============================================
+   TEST MODE & PREVIEW
+   ============================================ */
+
+/* Tab Content Visibility */
+.consbulle-tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.consbulle-tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Main Mode Tabs (Config/Test) */
+.btn-tab {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.btn-tab:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.btn-tab.active {
+    background: white;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* File Tabs (in Test Mode) */
+.file-tab {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    border-bottom: none;
+    margin-right: 2px;
+}
+
+.file-tab:hover {
+    background: #f8fafc;
+    color: #334155;
+}
+
+.file-tab.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+    border-bottom: 2px solid #3b82f6;
+    font-weight: 600;
+}
+
+.file-tab.has-result {
+    border-top: 2px solid #10b981;
+}
+
+.test-tabs-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.test-tabs-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+/* Excel Grid Preview */
+.excel-grid-container {
+    background: white;
+    border: 1px solid #e2e8f0;
+    width: 100%;
+    position: relative;
+}
+
+.excel-grid {
+    border-collapse: collapse;
+    width: max-content;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 12px;
+    min-width: 100%;
+}
+
+.excel-grid th {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    text-align: center;
+    border: 1px solid #cbd5e1;
+    padding: 4px 8px;
+    min-width: 60px;
+    user-select: none;
+}
+
+.excel-grid td {
+    padding: 4px 8px;
+    border: 1px solid #e2e8f0;
+    color: #1e293b;
+    white-space: nowrap;
+}
+
+.excel-grid td.row-header {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    text-align: center;
+    border-right: 1px solid #cbd5e1;
+    min-width: 40px;
+    position: sticky;
+    left: 0;
+}
+
 .site-item-icon {
     font-size: 20px;
 }

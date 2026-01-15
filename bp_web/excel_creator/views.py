@@ -593,3 +593,247 @@ class GenerateConsBulleAPIView(View):
                 'success': False,
                 'error': str(e)
             }, status=500)
+
+
+# ============================================
+# FILE PREPARATION MODULE VIEWS
+# ============================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PrepFileAnalyzeAPIView(View):
+    """Analyze an Excel file to count data cells, formula cells, and constants"""
+    
+    def post(self, request):
+        try:
+            file = request.FILES.get('file')
+            sheets_json = request.POST.get('sheets', '[]')
+            selected_sheets = json.loads(sheets_json) if sheets_json else []
+            
+            if not file:
+                return JsonResponse({'success': False, 'error': 'Fichier manquant'}, status=400)
+            
+            wb = load_workbook(file, data_only=False)
+            
+            total_cells = 0
+            data_cells = 0
+            formula_cells = 0
+            constant_cells = 0
+            
+            sheets_to_process = selected_sheets if selected_sheets else wb.sheetnames
+            
+            for sheet_name in sheets_to_process:
+                if sheet_name not in wb.sheetnames:
+                    continue
+                    
+                ws = wb[sheet_name]
+                
+                for row in ws.iter_rows():
+                    for cell in row:
+                        if cell.value is None:
+                            continue
+                            
+                        total_cells += 1
+                        
+                        # Check if it's a formula
+                        if isinstance(cell.value, str) and cell.value.startswith('='):
+                            formula_cells += 1
+                        # Check if it's a number (potential data or constant)
+                        elif isinstance(cell.value, (int, float)):
+                            # Heuristic: if cell is in a column with other similar values, it's data
+                            # If isolated or in header area, it's constant
+                            # Simple heuristic: check if cell has formula references to it
+                            # For now, count as data (will be cleared unless marked constant)
+                            data_cells += 1
+                        else:
+                            # Text cells are considered constants
+                            constant_cells += 1
+            
+            wb.close()
+            
+            return JsonResponse({
+                'success': True,
+                'total_cells': total_cells,
+                'data_cells': data_cells,
+                'formula_cells': formula_cells,
+                'constant_cells': constant_cells
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PrepFileGenerateAPIView(View):
+    """Generate a template file by clearing data cells while keeping formulas"""
+    
+    def post(self, request):
+        try:
+            file = request.FILES.get('file')
+            sheets_json = request.POST.get('sheets', '[]')
+            selected_sheets = json.loads(sheets_json) if sheets_json else []
+            keep_formulas = request.POST.get('keep_formulas', 'true').lower() == 'true'
+            keep_constants = request.POST.get('keep_constants', 'true').lower() == 'true'
+            clear_data = request.POST.get('clear_data', 'true').lower() == 'true'
+            output_filename = request.POST.get('output_filename', 'fichier_remplir_consolidation')
+            
+            if not file:
+                return JsonResponse({'success': False, 'error': 'Fichier manquant'}, status=400)
+            
+            # Load workbook with formulas preserved
+            wb = load_workbook(file, data_only=False)
+            
+            sheets_to_process = selected_sheets if selected_sheets else wb.sheetnames
+            
+            for sheet_name in sheets_to_process:
+                if sheet_name not in wb.sheetnames:
+                    continue
+                    
+                ws = wb[sheet_name]
+                
+                for row in ws.iter_rows():
+                    for cell in row:
+                        if cell.value is None:
+                            continue
+                        
+                        # Check if it's a formula
+                        is_formula = isinstance(cell.value, str) and cell.value.startswith('=')
+                        
+                        if is_formula:
+                            # Keep formulas if option enabled
+                            if not keep_formulas:
+                                cell.value = None
+                            continue
+                        
+                        # Check if it's a number (data to potentially clear)
+                        if isinstance(cell.value, (int, float)):
+                            # Heuristic for constants: cells used in formulas or header rows
+                            # Simple: if row <= 5, treat as constant; otherwise data
+                            if cell.row <= 5 and keep_constants:
+                                continue  # Keep header constants
+                            
+                            if clear_data:
+                                cell.value = None
+                        # Text cells are typically labels/headers - keep them
+            
+            # Save to temp file
+            temp_dir = Path(settings.MEDIA_ROOT) / 'temp'
+            temp_dir.mkdir(exist_ok=True)
+            output_path = temp_dir / f'{output_filename}.xlsx'
+            wb.save(output_path)
+            wb.close()
+            
+            return FileResponse(
+                open(output_path, 'rb'),
+                as_attachment=True,
+                filename=f'{output_filename}.xlsx'
+            )
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class GetSheetContentAPIView(View):
+    """API endpoint to get sheet content as JSON"""
+    
+    def post(self, request):
+        try:
+            import json
+            from openpyxl import load_workbook
+            
+            data = json.loads(request.body)
+            filename = data.get('filename')
+            # Fallback for site object
+            if not filename and data.get('site'):
+                filename = data.get('site', {}).get('filename')
+                
+            sheet_name = data.get('sheet_name')
+            max_rows = int(data.get('max_rows', 50))
+            
+            if not filename:
+                return JsonResponse({'success': False, 'error': 'Nom de fichier manquant'}, status=400)
+            
+            # Look for file in uploads or temp
+            filepath = Path(settings.MEDIA_ROOT) / "uploads" / filename
+            if not filepath.exists():
+                filepath = Path(settings.MEDIA_ROOT) / "temp" / filename
+                
+            if not filepath.exists():
+                 # Handle cases where filename contains path components or is just name
+                 name_only = Path(filename).name
+                 filepath = Path(settings.MEDIA_ROOT) / "uploads" / name_only
+            
+            if not filepath.exists():
+                return JsonResponse({'success': False, 'error': f'Fichier non trouvé: {filename}'}, status=404)
+            
+            wb = load_workbook(filepath, data_only=True, read_only=True)
+            
+            if not sheet_name:
+                sheet_name = wb.sheetnames[0]
+                
+            if sheet_name not in wb.sheetnames:
+                return JsonResponse({'success': False, 'error': f'Feuille non trouvée: {sheet_name}'}, status=404)
+                
+            ws = wb[sheet_name]
+            
+            data_rows = []
+            max_col = min(ws.max_column, 26) 
+            max_row_actual = min(ws.max_row, max_rows)
+            
+            for row in ws.iter_rows(min_row=1, max_row=max_row_actual, min_col=1, max_col=max_col, values_only=True):
+                cleaned_row = ["" if cell is None else str(cell) for cell in row]
+                data_rows.append(cleaned_row)
+                
+            wb.close()
+            dimensions = {'rows': ws.max_row, 'cols': ws.max_column}
+            
+            return JsonResponse({
+                'success': True,
+                'sheet_name': sheet_name,
+                'data': data_rows,
+                'dimensions': dimensions
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PreviewConsolidationAPIView(View):
+    """API endpoint to preview consolidation without download"""
+    
+    def post(self, request):
+        try:
+            from .consolidator import consolidate_files
+            
+            data = json.loads(request.body)
+            files = data.get('files', [])
+            
+            if not files:
+                return JsonResponse({'success': False, 'error': 'Aucun fichier'}, status=400)
+            
+            filename = consolidate_files(
+                files=files,
+                sheet_name=data.get('sheet_name', 'Feuille1'),
+                start_column=data.get('start_column', 'E'),
+                end_column=data.get('end_column', 'P'),
+                start_row=data.get('start_row', 1),
+                end_row=data.get('end_row', 10),
+                group_by=data.get('group_by', 'branch')
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'filename': filename,
+                'message': 'Consolidation générée pour prévisualisation'
+            })
+            
+        except Exception as e:
+             return JsonResponse({'success': False, 'error': str(e)}, status=500)
+

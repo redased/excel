@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{% static 'css/bubbles.css' %}">
     <link rel="stylesheet" href="{% static 'css/consbulle.css' %}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{% static 'js/testfiles.js' %}" defer></script>
 </head>
 
 <body>
@@ -29,6 +30,14 @@
                 <button class="nav-item active" data-page="consbulle">
                     <span class="nav-icon">📊</span>
                     <span class="nav-text">Consolidation</span>
+                </button>
+                <button class="nav-item" data-page="fichremp">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Préparation Fichier</span>
+                </button>
+                <button class="nav-item" data-page="testfiles">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-text">Test Fichiers</span>
                 </button>
 
                 <div class="nav-section-title"
@@ -76,99 +85,161 @@
             <!-- ======================= -->
             <!-- CONSOLIDATION PAGE (OLD - HIDDEN) -->
             <!-- ======================= -->
+            <!-- ======================= -->
+            <!-- CONSOLIDATION PAGE (OLD - HIDDEN) -->
+            <!-- ======================= -->
             <section id="page-consolidation" class="page">
                 <div class="page-header">
-                    <h2>📁 Consolidation de Fichiers Excel</h2>
-                    <p>Combinez plusieurs fichiers Excel en un seul fichier de synthèse</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h2>📁 Consolidation de Fichiers Excel</h2>
+                            <p>Combinez plusieurs fichiers Excel en un seul fichier de synthèse</p>
+                        </div>
+                        <div class="cons-mode-tabs"
+                            style="display:flex; gap:10px; background:#f1f5f9; padding:5px; border-radius:8px;">
+                            <button class="btn-tab active" id="tab-cons-work" onclick="switchConsTab('work')">🛠️
+                                Configuration</button>
+                            <button class="btn-tab" id="tab-cons-test" onclick="switchConsTab('test')">🧪 Test
+                                Consolidation</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="consolidation-content">
-                    <!-- File Upload Section -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>1. Sélectionner les fichiers</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="file-upload-zone" id="file-drop-zone">
-                                <input type="file" id="consolidation-files" multiple accept=".xlsx,.xls">
-                                <div class="upload-placeholder">
-                                    <span class="upload-icon">📂</span>
-                                    <p>Glissez-déposez vos fichiers Excel ici</p>
-                                    <span>ou cliquez pour sélectionner</span>
-                                </div>
+                <!-- TAB: WORK (Configuration) -->
+                <div id="cons-content-work" class="cons-tab-content active">
+                    <div class="consolidation-content">
+                        <!-- File Upload Section -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>1. Sélectionner les fichiers</h3>
                             </div>
-                            <div id="files-list" class="files-list"></div>
-                        </div>
-                    </div>
-
-                    <!-- Configuration Section -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>2. Configuration</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="config-grid">
-                                <div class="form-group">
-                                    <label>Feuille par défaut</label>
-                                    <input type="text" id="cons-sheet" value="Feuille1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Colonnes</label>
-                                    <div class="input-row">
-                                        <input type="text" id="cons-start-col" value="E" style="width:60px;">
-                                        <span>à</span>
-                                        <input type="text" id="cons-end-col" value="P" style="width:60px;">
+                            <div class="card-body">
+                                <div class="file-upload-zone" id="file-drop-zone">
+                                    <input type="file" id="consolidation-files" multiple accept=".xlsx,.xls">
+                                    <div class="upload-placeholder">
+                                        <span class="upload-icon">📂</span>
+                                        <p>Glissez-déposez vos fichiers Excel ici</p>
+                                        <span>ou cliquez pour sélectionner</span>
                                     </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Lignes</label>
-                                    <div class="input-row">
-                                        <input type="number" id="cons-start-row" value="1" min="1" style="width:70px;">
-                                        <span>à</span>
-                                        <input type="number" id="cons-end-row" value="10" min="1" style="width:70px;">
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Grouper par</label>
-                                    <select id="cons-group-by">
-                                        <option value="branch">Branche</option>
-                                        <option value="responsible">Responsable</option>
-                                        <option value="cost_center">Centre Coût</option>
-                                    </select>
-                                </div>
+                                <div id="files-list" class="files-list"></div>
                             </div>
+                        </div>
 
-                            <!-- AI Section -->
-                            <div class="ai-section">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="cons-use-ai">
-                                    <span>🤖 Utiliser l'IA pour analyser automatiquement</span>
-                                </label>
-                                <div id="cons-ai-section" class="ai-options" style="display:none;">
+                        <!-- Configuration Section -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>2. Configuration</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="config-grid">
                                     <div class="form-group">
-                                        <label>Clé API Z.ai</label>
-                                        <input type="password" id="cons-api-key" placeholder="Votre clé API...">
+                                        <label>Feuille par défaut</label>
+                                        <input type="text" id="cons-sheet" value="Feuille1">
                                     </div>
                                     <div class="form-group">
-                                        <label>Description</label>
-                                        <textarea id="cons-description" rows="2"
-                                            placeholder="Décrivez ce que vous voulez consolider..."></textarea>
+                                        <label>Colonnes</label>
+                                        <div class="input-row">
+                                            <input type="text" id="cons-start-col" value="E" style="width:60px;">
+                                            <span>à</span>
+                                            <input type="text" id="cons-end-col" value="P" style="width:60px;">
+                                        </div>
                                     </div>
-                                    <button class="btn btn-ai btn-small" onclick="analyzeWithAI()">🔍 Analyser</button>
+                                    <div class="form-group">
+                                        <label>Lignes</label>
+                                        <div class="input-row">
+                                            <input type="number" id="cons-start-row" value="1" min="1"
+                                                style="width:70px;">
+                                            <span>à</span>
+                                            <input type="number" id="cons-end-row" value="10" min="1"
+                                                style="width:70px;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Grouper par</label>
+                                        <select id="cons-group-by">
+                                            <option value="branch">Branche</option>
+                                            <option value="responsible">Responsable</option>
+                                            <option value="cost_center">Centre Coût</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- AI Section -->
+                                <div class="ai-section">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="cons-use-ai">
+                                        <span>🤖 Utiliser l'IA pour analyser automatiquement</span>
+                                    </label>
+                                    <div id="cons-ai-section" class="ai-options" style="display:none;">
+                                        <div class="form-group">
+                                            <label>Clé API Z.ai</label>
+                                            <input type="password" id="cons-api-key" placeholder="Votre clé API...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Description</label>
+                                            <textarea id="cons-description" rows="2"
+                                                placeholder="Décrivez ce que vous voulez consolider..."></textarea>
+                                        </div>
+                                        <button class="btn btn-ai btn-small" onclick="analyzeWithAI()">🔍
+                                            Analyser</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Action Section -->
-                    <div class="action-bar">
-                        <div id="cons-status" class="ai-status"></div>
-                        <button class="btn btn-primary btn-large" onclick="startConsolidation()">
-                            📊 Lancer la consolidation
-                        </button>
+                        <!-- Action Section -->
+                        <div class="action-bar">
+                            <div id="cons-status" class="ai-status"></div>
+                            <button class="btn btn-primary btn-large" onclick="startConsolidation()">
+                                📊 Lancer la consolidation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: TEST (Preview) -->
+                <div id="cons-content-test" class="cons-tab-content" style="display:none;">
+                    <div class="card" style="min-height: 600px; display:flex; flex-direction:column;">
+                        <div class="card-header"
+                            style="display:flex; justify-content:space-between; align-items:center;">
+                            <div id="test-file-tabs" class="test-tabs-scroll"
+                                style="display:flex; overflow-x:auto; gap:5px; padding-bottom:5px; max-width:80%;">
+                                <!-- Dynamic File Tabs will go here -->
+                                <button class="file-tab active">Aucun fichier</button>
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="calculateConsolidationTest()">🧮 Calculer
+                                    Excel</button>
+                            </div>
+                        </div>
+                        <div class="card-body"
+                            style="flex:1; padding:0; overflow:hidden; display:flex; flex-direction:column;">
+                            <!-- Toolbar for sheet info -->
+                            <div style="padding:10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:12px; display:flex; gap:15px;"
+                                id="sheet-info-bar">
+                                <span>Feuille: <strong id="preview-sheet-name">-</strong></span>
+                                <span>Lignes: <strong id="preview-rows">-</strong></span>
+                                <span>Colonnes: <strong id="preview-cols">-</strong></span>
+                            </div>
+
+                            <!-- Grid Container -->
+                            <div class="excel-grid-container" style="flex:1; overflow:auto; padding:0;">
+                                <table class="excel-grid" id="test-preview-table">
+                                    <thead></thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="padding:20px; text-align:center; color:#94a3b8;">Chargez des
+                                                fichiers dans l'onglet "Configuration" pour commencer les tests</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
+
 
             <!-- ======================= -->
             <!-- EXCEL CREATOR PAGE -->
@@ -1066,6 +1137,180 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Sheet Grouping Rules -->
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <h3>📋 Règles de Groupement des Feuilles</h3>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: #64748b; font-size: 13px; margin-bottom: 16px;">
+                                Définissez les préfixes et leurs noms de groupe pour organiser les feuilles (Étape 3 de
+                                la consolidation).
+                            </p>
+
+                            <!-- Add New Rule -->
+                            <div
+                                style="display: flex; gap: 12px; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                                <div style="flex: 1;">
+                                    <label
+                                        style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">Préfixe
+                                        (ex: BP)</label>
+                                    <input type="text" id="new-group-prefix" placeholder="BP"
+                                        style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                </div>
+                                <div style="flex: 2;">
+                                    <label
+                                        style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">Nom
+                                        du groupe</label>
+                                    <input type="text" id="new-group-name" placeholder="Budget Prévisionnel"
+                                        style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                </div>
+                                <div style="display: flex; align-items: flex-end;">
+                                    <button class="btn btn-primary btn-sm" onclick="addSheetGroupRule()">➕
+                                        Ajouter</button>
+                                </div>
+                            </div>
+
+                            <!-- Existing Rules List -->
+                            <div id="sheet-group-rules-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                <p style="color: #94a3b8; font-size: 13px;">Aucune règle définie. Les feuilles seront
+                                    groupées par premier mot.</p>
+                            </div>
+
+                            <div style="margin-top: 16px;">
+                                <button class="btn btn-secondary btn-sm" onclick="saveSheetGroupRules()">💾
+                                    Sauvegarder</button>
+                                <button class="btn btn-sm" onclick="resetSheetGroupRules()"
+                                    style="margin-left: 8px; background: #f1f5f9; border: 1px solid #e2e8f0;">🔄
+                                    Réinitialiser</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================= -->
+            <!-- TEST FICHIERS PAGE -->
+            <!-- ======================= -->
+            <section id="page-testfiles" class="page">
+                <div class="page-header">
+                    <h2>🔍 Test & Vérification Fichiers</h2>
+                    <p>Comparez vos fichiers sources avec le résultat généré et détectez les erreurs</p>
+                </div>
+
+                <div class="testfiles-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Left: Source Folder -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📂 Dossier Responsable</h3>
+                            <span id="source-files-count"
+                                style="background: #3b82f6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">0
+                                fichiers</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Hidden folder input -->
+                            <input type="file" id="testfiles-folder-input" webkitdirectory directory multiple
+                                style="display: none;">
+
+                            <!-- Folder drop zone -->
+                            <div class="folder-upload-zone" id="testfiles-folder-drop"
+                                style="border: 2px dashed #3b82f6; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); margin-bottom: 16px;">
+                                <span style="font-size: 48px;">📁</span>
+                                <p style="margin: 12px 0 4px; color: #1e40af; font-weight: 600;">Glissez ou cliquez pour
+                                    sélectionner un DOSSIER</p>
+                                <p style="margin: 0; color: #64748b; font-size: 12px;">Ex: MARTIN Jean/ contenant les
+                                    fichiers Excel</p>
+                            </div>
+
+                            <!-- Current responsable info -->
+                            <div id="testfiles-responsable-info"
+                                style="display: none; padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span><strong>👤 Responsable:</strong> <span
+                                            id="testfiles-responsable-name">-</span></span>
+                                    <span style="color: #16a34a;"><strong id="testfiles-file-count">0</strong>
+                                        fichiers</span>
+                                </div>
+                            </div>
+
+                            <!-- Files list -->
+                            <div id="source-files-list"
+                                style="max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                                <p style="color: #94a3b8; font-size: 13px; text-align: center;">Aucun dossier chargé</p>
+                            </div>
+
+                            <!-- Sheet selector -->
+                            <label style="display: block; margin-bottom: 8px; font-weight: 500;">Feuille à
+                                comparer:</label>
+                            <select id="testfiles-sheet-select"
+                                style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <option value="">-- Chargez un dossier --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Right: Result File -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>📊 Fichier Résultat</h3>
+                            <span id="result-file-status"
+                                style="background: #94a3b8; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">Non
+                                chargé</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="file-upload-zone" id="testfiles-result-drop"
+                                style="border: 2px dashed #10b981; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: #f0fdf4; margin-bottom: 16px;">
+                                <input type="file" id="testfiles-result-input" accept=".xlsx,.xls"
+                                    style="display: none;">
+                                <span style="font-size: 32px;">📥</span>
+                                <p style="margin: 8px 0; color: #64748b;" id="result-file-label">Glissez le fichier
+                                    résultat ici</p>
+                                <p style="font-size: 11px; color: #10b981;">💡 Auto-chargé après génération</p>
+                            </div>
+
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn btn-primary" onclick="compareFiles()" id="btn-compare-files"
+                                    disabled>
+                                    🔍 Comparer
+                                </button>
+                                <button class="btn btn-secondary" onclick="correctErrors()" id="btn-correct-errors"
+                                    style="display: none;">
+                                    🔧 Corriger les erreurs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison Results -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h3>📋 Résultats de la Comparaison</h3>
+                        <div id="comparison-stats" style="display: flex; gap: 16px;">
+                            <span style="color: #10b981;">✅ Correct: <strong id="stat-correct">0</strong></span>
+                            <span style="color: #ef4444;">❌ Erreurs: <strong id="stat-errors">0</strong></span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="comparison-table-container" style="overflow-x: auto;">
+                            <div class="empty-state">
+                                <span>🔍</span>
+                                <p>Chargez des fichiers et cliquez "Comparer" pour voir les résultats</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Details -->
+                <div class="card" style="margin-top: 20px; display: none;" id="error-details-card">
+                    <div class="card-header" style="background: #fef2f2; border-bottom-color: #fecaca;">
+                        <h3 style="color: #dc2626;">❌ Détail des Erreurs</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="error-list" style="max-height: 300px; overflow-y: auto;">
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1112,482 +1357,881 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </section>
 
-                    <!-- Right Panel: Drop Zone -->
-                    <div class="bubbles-design">
-                        <div class="card" style="height: 100%;">
+            <!-- CONSOLIDATION PAGE (MAIN) -->
+            <!-- ======================= -->
+            <section id="page-consbulle" class="page active">
+                <div class="page-header">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h2>📊 Consolidation</h2>
+                            <p>Glissez un dossier pour créer automatiquement la structure de consolidation</p>
+                        </div>
+                        <div class="cons-mode-tabs"
+                            style="display:flex; gap:10px; background:#f1f5f9; padding:5px; border-radius:8px;">
+                            <button class="btn-tab active" id="tab-cb-config" onclick="switchConsBulleTab('config')">🛠️
+                                Configuration</button>
+                            <button class="btn-tab" id="tab-cb-test" onclick="switchConsBulleTab('test')">🧪
+                                Test Consolidation</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: CONFIGURATION -->
+                <div id="cb-content-config" class="consbulle-tab-content active">
+
+                    <!-- Folder Drop Zone -->
+                    <div class="card" style="margin-bottom: 20px;">
+                        <div class="card-body">
+                            <div class="folder-upload-zone" id="consbulle-folder-drop" style="padding: 40px;">
+                                <input type="file" id="consbulle-files" multiple accept=".xlsx,.xls" webkitdirectory>
+                                <div class="upload-placeholder">
+                                    <span style="font-size: 48px;">📂</span>
+                                    <h3 style="margin: 12px 0 8px;">Glissez un dossier ici</h3>
+                                    <p style="color: #64748b;">Le nom du dossier = Responsable • Les fichiers
+                                        Excel = Sites
+                                    </p>
+                                    <span style="color: #94a3b8; font-size: 12px;">ou cliquez pour sélectionner
+                                        des
+                                        fichiers</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="consbulle-container">
+                        <!-- Step 1: Responsables -->
+                        <div class="card consbulle-step">
                             <div class="card-header">
-                                <h3>📊 Zone de Conception</h3>
-                                <button class="btn btn-sm btn-secondary" onclick="clearDesignZone()">🗑️ Vider</button>
+                                <h3>👤 Responsables</h3>
+                                <button class="btn btn-sm btn-primary" onclick="addResponsable()">+
+                                    Ajouter</button>
                             </div>
                             <div class="card-body">
-                                <div class="design-drop-zone" id="design-drop-zone">
-                                    <div class="drop-placeholder" id="drop-placeholder">
-                                        <span>🎯</span>
-                                        <p>Glissez les bulles ici pour construire votre fichier consolidé</p>
+                                <div id="responsables-list" class="consbulle-items">
+                                    <div class="empty-state">
+                                        <span>👤</span>
+                                        <p>Glissez un dossier ou cliquez "Ajouter"</p>
                                     </div>
-                                    <div class="dropped-items" id="dropped-items"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Sites -->
+                        <div class="card consbulle-step">
+                            <div class="card-header">
+                                <h3>📄 Sites (Fichiers Excel)</h3>
+                                <button class="btn btn-sm btn-primary" onclick="addSite()" id="btn-add-site" disabled>+
+                                    Ajouter</button>
+                            </div>
+                            <div class="card-body">
+                                <div id="sites-list" class="consbulle-items">
+                                    <div class="empty-state">
+                                        <span>📄</span>
+                                        <p>Sélectionnez un responsable</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Sheets Configuration -->
+                        <div class="card consbulle-step">
+                            <div class="card-header">
+                                <h3>📋 Configuration des Feuilles</h3>
+                            </div>
+                            <div class="card-body">
+                                <!-- Mode Toggle -->
+                                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                    <label class="mode-option"
+                                        style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                        <input type="radio" name="sheet-mode" value="auto" checked
+                                            onchange="toggleSheetMode('auto')" style="margin-right: 8px;">
+                                        <strong>🔄 Auto</strong>
+                                        <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Toutes les
+                                            feuilles
+                                            détectées</p>
+                                    </label>
+                                    <label class="mode-option"
+                                        style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                        <input type="radio" name="sheet-mode" value="manual"
+                                            onchange="toggleSheetMode('manual')" style="margin-right: 8px;">
+                                        <strong>✏️ Manuel</strong>
+                                        <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Définir
+                                            colonnes et
+                                            lignes</p>
+                                    </label>
                                 </div>
 
-                                <div class="design-actions" style="margin-top: 16px;">
-                                    <button class="btn btn-primary" onclick="generateBubbleExcel()"
-                                        id="btn-generate-bubbles" disabled>
-                                        📥 Générer le fichier Excel
+                                <!-- Auto Mode: Sheet List -->
+                                <div id="sheets-mode-auto">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                        <button class="btn btn-sm btn-secondary" onclick="selectAllSheets()">✓
+                                            Toutes</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="deselectAllSheets()">✗
+                                            Aucune</button>
+                                    </div>
+                                    <div id="sheets-list" class="consbulle-items">
+                                        <div class="empty-state">
+                                            <span>📋</span>
+                                            <p>Chargez des fichiers pour voir les feuilles</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Manual Mode: Custom Ranges -->
+                                <div id="sheets-mode-manual" style="display: none;">
+                                    <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                                        💡 Ajoutez des configurations d'extraction personnalisées (feuille,
+                                        colonnes,
+                                        lignes)
+                                    </p>
+
+                                    <!-- Add Range Form -->
+                                    <div
+                                        style="display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+                                        <div style="flex: 2; min-width: 120px;">
+                                            <label
+                                                style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Feuille</label>
+                                            <input type="text" id="range-sheet" placeholder="Feuil1"
+                                                style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 60px;">
+                                            <label
+                                                style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
+                                                début</label>
+                                            <input type="text" id="range-col-start" placeholder="A" maxlength="2"
+                                                style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 60px;">
+                                            <label
+                                                style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
+                                                fin</label>
+                                            <input type="text" id="range-col-end" placeholder="Z" maxlength="2"
+                                                style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 60px;">
+                                            <label
+                                                style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
+                                                début</label>
+                                            <input type="number" id="range-row-start" placeholder="1" min="1"
+                                                style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                        </div>
+                                        <div style="flex: 1; min-width: 60px;">
+                                            <label
+                                                style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
+                                                fin</label>
+                                            <input type="number" id="range-row-end" placeholder="100" min="1"
+                                                style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" onclick="addSheetRange()"
+                                            style="padding: 8px 16px;">+ Ajouter</button>
+                                    </div>
+
+                                    <!-- Ranges List -->
+                                    <div id="sheet-ranges-list">
+                                        <div class="empty-state">
+                                            <span>📋</span>
+                                            <p>Aucune configuration ajoutée</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Output & Generate -->
+                        <div class="card consbulle-step">
+                            <div class="card-header">
+                                <h3>📊 Génération</h3>
+                            </div>
+                            <div class="card-body">
+                                <!-- Output filename -->
+                                <div class="form-group" style="margin-bottom: 16px;">
+                                    <label style="font-weight: 500; margin-bottom: 6px; display: block;">Nom du
+                                        fichier de
+                                        sortie</label>
+                                    <input type="text" id="cb-output-filename" value="Consolidation"
+                                        placeholder="Nom du fichier..."
+                                        style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                                </div>
+
+                                <!-- Mode selector -->
+                                <div class="form-group" style="margin-bottom: 16px;">
+                                    <label style="font-weight: 500; margin-bottom: 6px; display: block;">Mode de
+                                        consolidation</label>
+                                    <select id="cb-mode" onchange="updateModeOptions()"
+                                        style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
+                                        <option value="simple">📋 Simple (Empilage) - Tableaux un en dessous de
+                                            l'autre
+                                        </option>
+                                        <option value="template">📄 Avec Modèle - Utiliser un modèle vide et
+                                            remplir avec
+                                            les SOMMES</option>
+                                        <option value="synthesis">📊 Avec Synthèse - Comparaison et
+                                            récapitulatif</option>
+                                        <option value="statistics">📈 Avec Statistiques - Somme, Moyenne, Min,
+                                            Max</option>
+                                        <option value="graphs">📉 Avec Graphiques - Visualisations et charts
+                                        </option>
+                                        <option value="complete">🎯 Complet - Tout inclus (Synthèse + Stats +
+                                            Graphiques)
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <!-- Template Mode Options -->
+                                <div id="options-template" class="mode-options"
+                                    style="display: none; padding: 16px; background: #fef3c7; border-radius: 8px; border: 1px solid #fbbf24; margin-bottom: 16px;">
+                                    <p style="font-weight: 600; margin-bottom: 12px; color: #92400e;">📄 Fichier
+                                        Modèle</p>
+                                    <p style="font-size: 12px; color: #a16207; margin-bottom: 12px;">
+                                        ⚠️ Chargez un fichier modèle vide (créé via "Préparation Fichier"). Les
+                                        cellules
+                                        seront remplies avec les SOMMES des fichiers sources.
+                                    </p>
+                                    <div class="file-upload-zone" id="template-file-drop-zone"
+                                        style="border: 2px dashed #fbbf24; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; background: white;">
+                                        <input type="file" id="template-file-input" accept=".xlsx,.xls"
+                                            style="display: none;">
+                                        <span style="font-size: 24px;">📄</span>
+                                        <p style="margin: 8px 0; font-size: 13px; color: #92400e;"
+                                            id="template-file-label">
+                                            Glissez le fichier modèle ici</p>
+                                    </div>
+                                </div>
+
+                                <!-- Analysis & Configuration Step -->
+                                <div
+                                    style="margin-bottom: 20px; padding: 15px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <h3 style="font-size: 14px; font-weight: 600; color: #1e40af; margin: 0;">🔍
+                                            Analyse & Structure</h3>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <label style="font-size: 12px; color: #1e40af;">Profondeur Scan:</label>
+                                            <input type="number" id="cons-scan-depth" value="50" min="10" max="5000"
+                                                style="width: 60px; padding: 4px; font-size: 12px; border: 1px solid #93c5fd; border-radius: 4px;">
+                                            <button onclick="triggerAnalysis()" class="btn-primary"
+                                                style="padding: 4px 12px; font-size: 12px; background: #2563eb;">
+                                                Lancer Analyse
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <p style="font-size: 12px; color: #3b82f6; margin-bottom: 15px;">
+                                        Analysez vos fichiers pour détecter automatiquement les zones d'en-têtes.
+                                        Cliquez sur un fichier dans le tableau pour vérifier.
+                                    </p>
+
+                                    <!-- Config Table -->
+                                    <div class="table-responsive"
+                                        style="max-height: 300px; overflow-y: auto; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                        <table class="table table-sm" id="sheet-config-table"
+                                            style="margin: 0; font-size: 12px;">
+                                            <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+                                                <tr>
+                                                    <th style="width: 30%;">Fichier</th>
+                                                    <th style="width: 25%;">Feuille</th>
+                                                    <th style="width: 20%;">Lignes Fixes</th>
+                                                    <th style="width: 20%;">Cols Fixes</th>
+                                                    <th style="width: 5%;">Voir</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="sheet-config-body">
+                                                <tr>
+                                                    <td colspan="5"
+                                                        style="text-align: center; color: #94a3b8; padding: 20px;">
+                                                        Veuillez lancer l'analyse pour configurer les zones.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- File Preview Modal -->
+                                <div id="cb-preview-modal" class="modal"
+                                    style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+                                    <div class="modal-content"
+                                        style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1200px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                                        <div
+                                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                            <h3 id="cb-preview-modal-title"
+                                                style="margin: 0; font-size: 18px; color: #1e293b;">Aperçu du Fichier
+                                            </h3>
+                                            <span onclick="closeCbPreviewModal()"
+                                                style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+                                        </div>
+                                        <div id="cb-preview-modal-content"
+                                            style="height: 600px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 4px;">
+                                            <div
+                                                style="display: flex; justify-content: center; align-items: center; height: 100%;">
+                                                <div class="spinner"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Dynamic Mode Options -->
+                                <div id="mode-options-container" style="margin-bottom: 16px;">
+                                    <!-- Options pour Statistiques -->
+                                    <div id="options-statistics" class="mode-options"
+                                        style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                        <p style="font-weight: 600; margin-bottom: 12px;">📈 Analyses
+                                            Statistiques</p>
+
+                                        <!-- Basic Stats -->
+                                        <p
+                                            style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">
+                                            📊
+                                            Statistiques de base</p>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 12px;">
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-sum" checked> ∑ Somme
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-avg" checked> x̄ Moyenne
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-median"> M̃ Médiane
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-mode"> Mo Mode
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-count"> # Nombre
+                                            </label>
+                                        </div>
+
+                                        <!-- Dispersion -->
+                                        <p
+                                            style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">
+                                            📉
+                                            Dispersion</p>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 12px;">
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-min" checked> ↓ Min
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-max" checked> ↑ Max
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-stdev"> σ Écart-type
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="stat-variance"> σ² Variance
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Options pour Synthèse -->
+                                    <div id="options-synthesis" class="mode-options"
+                                        style="display: none; padding: 16px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                                        <p style="font-weight: 600; margin-bottom: 12px; color: #0369a1;">📊
+                                            Rapport de
+                                            Synthèse</p>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="synth-recap" checked> 📑
+                                                Récapitulatif Global
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="synth-compare" checked> ⚖️
+                                                Comparatif par Site
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="synth-diff"> 🔍 Analyse des Écarts
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="synth-rank"> 🏆 Classement / Top 10
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Options pour Graphiques -->
+                                    <div id="options-graphs" class="mode-options"
+                                        style="display: none; padding: 16px; background: #f5f3ff; border-radius: 8px; border: 1px solid #ddd6fe;">
+                                        <p style="font-weight: 600; margin-bottom: 12px; color: #5b21b6;">📉
+                                            Visualisations
+                                        </p>
+                                        <div
+                                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="chart-bar" checked> 📊 Histogrammes
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="chart-line" checked> 📈 Courbes
+                                                d'évolution
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="chart-pie"> 🥧 Camemberts
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="chart-area"> ⛰️ Graphiques en Aire
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Options pour Complet -->
+                                    <div id="options-complete" class="mode-options"
+                                        style="display: none; padding: 16px; background: #ecfdf5; border-radius: 8px; border: 1px solid #6ee7b7;">
+                                        <p style="font-weight: 600; margin-bottom: 12px; color: #047857;">🎯
+                                            Pack Complet
+                                        </p>
+                                        <p style="font-size: 13px; color: #065f46; margin-bottom: 12px;">
+                                            Génère un rapport exhaustif incluant toutes les fonctionnalités
+                                            ci-dessous.
+                                        </p>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="complete-dashboard" checked> 🖥️
+                                                Dashboard
+                                                Interactif (Accueil)
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="complete-synthesis" checked> 📊
+                                                Synthèse &
+                                                Comparaisons
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="complete-stats" checked> 📈
+                                                Statistiques
+                                                Détaillées
+                                            </label>
+                                            <label
+                                                style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                                                <input type="checkbox" name="complete-charts" checked> 📉 Pack
+                                                Graphiques
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="cons-generate-action"
+                                    style="margin-top:20px; display:flex; justify-content:flex-end;">
+                                    <button class="btn btn-primary btn-lg" onclick="generateConsolidation()"
+                                        id="btn-generate-cons">
+                                        🚀 Lancer la Consolidation
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- TAB: TEST CONSOLIDATION -->
+                <div id="cb-content-test" class="consbulle-tab-content" style="display:none;">
+                    <div class="card" style="min-height: 600px; display:flex; flex-direction:column;">
+                        <div class="card-header"
+                            style="display:flex; justify-content:space-between; align-items:center;">
+                            <div id="test-consbulle-tabs" class="test-tabs-scroll"
+                                style="display:flex; overflow-x:auto; gap:5px; padding-bottom:5px; max-width:80%;">
+                                <!-- Dynamic File Tabs will go here -->
+                                <button class="file-tab active">Aucun fichier</button>
+                            </div>
+                            <div>
+                                <button class="btn btn-success" onclick="calculateConsBulleTest()">🧮 Calculer
+                                    Excel</button>
+                            </div>
+                        </div>
+                        <div class="card-body"
+                            style="flex:1; padding:0; overflow:hidden; display:flex; flex-direction:column;">
+                            <!-- Toolbar for sheet info -->
+                            <div style="padding:10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:12px; display:flex; gap:15px;"
+                                id="cb-preview-info-bar">
+                                <span>Feuille: <strong id="cb-preview-sheet-name">-</strong></span>
+                                <span>Lignes: <strong id="cb-preview-rows">-</strong></span>
+                                <span>Colonnes: <strong id="cb-preview-cols">-</strong></span>
+                            </div>
+
+                            <!-- Grid Container -->
+                            <div class="excel-grid-container" style="flex:1; overflow:auto; padding:0;">
+                                <table class="excel-grid" id="cb-test-preview-table">
+                                    <thead></thead>
+                                    <tbody>
+                                        <tr>
+                                            <td style="padding:20px; text-align:center; color:#94a3b8;">Chargez
+                                                des fichiers dans l'onglet "Configuration" pour commencer les
+                                                tests</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
+
             <!-- ======================= -->
-            <!-- CONSOLIDATION PAGE (MAIN) -->
+            <!-- PREPARATION FICHIER PAGE -->
             <!-- ======================= -->
-            <section id="page-consbulle" class="page active">
+            <section id="page-fichremp" class="page">
                 <div class="page-header">
-                    <h2>📊 Consolidation</h2>
-                    <p>Glissez un dossier pour créer automatiquement la structure de consolidation</p>
+                    <h2>📋 Préparation Fichier de Consolidation</h2>
+                    <p>Créez un modèle vide à partir d'un fichier Excel rempli (garde les formules, vide les
+                        données)
+                    </p>
                 </div>
 
-                <!-- Folder Drop Zone -->
-                <div class="card" style="margin-bottom: 20px;">
-                    <div class="card-body">
-                        <div class="folder-upload-zone" id="consbulle-folder-drop" style="padding: 40px;">
-                            <input type="file" id="consbulle-files" multiple accept=".xlsx,.xls" webkitdirectory>
-                            <div class="upload-placeholder">
-                                <span style="font-size: 48px;">📂</span>
-                                <h3 style="margin: 12px 0 8px;">Glissez un dossier ici</h3>
-                                <p style="color: #64748b;">Le nom du dossier = Responsable • Les fichiers Excel = Sites
-                                </p>
-                                <span style="color: #94a3b8; font-size: 12px;">ou cliquez pour sélectionner des
-                                    fichiers</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="consbulle-container">
-                    <!-- Step 1: Responsables -->
+                <div class="consbulle-layout">
+                    <!-- Step 1: Upload Source File -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>👤 Responsables</h3>
-                            <button class="btn btn-sm btn-primary" onclick="addResponsable()">+ Ajouter</button>
+                            <h3>📂 1. Charger le Fichier Source</h3>
                         </div>
                         <div class="card-body">
-                            <div id="responsables-list" class="consbulle-items">
-                                <div class="empty-state">
-                                    <span>👤</span>
-                                    <p>Glissez un dossier ou cliquez "Ajouter"</p>
+                            <div class="file-upload-zone" id="prep-file-drop-zone"
+                                style="border: 2px dashed #cbd5e1; border-radius: 10px; padding: 30px; text-align: center; cursor: pointer;">
+                                <input type="file" id="prep-source-file" accept=".xlsx,.xls" style="display: none;">
+                                <div class="upload-placeholder">
+                                    <span style="font-size: 48px;">📄</span>
+                                    <p style="margin: 12px 0 6px; font-weight: 600;">Glissez un fichier Excel
+                                        rempli ici
+                                    </p>
+                                    <span style="color: #64748b; font-size: 13px;">ou cliquez pour
+                                        sélectionner</span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Step 2: Sites -->
-                    <div class="card consbulle-step">
-                        <div class="card-header">
-                            <h3>📄 Sites (Fichiers Excel)</h3>
-                            <button class="btn btn-sm btn-primary" onclick="addSite()" id="btn-add-site" disabled>+
-                                Ajouter</button>
-                        </div>
-                        <div class="card-body">
-                            <div id="sites-list" class="consbulle-items">
-                                <div class="empty-state">
-                                    <span>📄</span>
-                                    <p>Sélectionnez un responsable</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Sheets Configuration -->
-                    <div class="card consbulle-step">
-                        <div class="card-header">
-                            <h3>📋 Configuration des Feuilles</h3>
-                        </div>
-                        <div class="card-body">
-                            <!-- Mode Toggle -->
-                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                                <label class="mode-option"
-                                    style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
-                                    <input type="radio" name="sheet-mode" value="auto" checked
-                                        onchange="toggleSheetMode('auto')" style="margin-right: 8px;">
-                                    <strong>🔄 Auto</strong>
-                                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Toutes les feuilles
-                                        détectées</p>
-                                </label>
-                                <label class="mode-option"
-                                    style="flex: 1; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.2s;">
-                                    <input type="radio" name="sheet-mode" value="manual"
-                                        onchange="toggleSheetMode('manual')" style="margin-right: 8px;">
-                                    <strong>✏️ Manuel</strong>
-                                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Définir colonnes et
-                                        lignes</p>
-                                </label>
-                            </div>
-
-                            <!-- Auto Mode: Sheet List -->
-                            <div id="sheets-mode-auto">
-                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <button class="btn btn-sm btn-secondary" onclick="selectAllSheets()">✓
-                                        Toutes</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="deselectAllSheets()">✗
-                                        Aucune</button>
-                                </div>
-                                <div id="sheets-list" class="consbulle-items">
-                                    <div class="empty-state">
-                                        <span>📋</span>
-                                        <p>Chargez des fichiers pour voir les feuilles</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Manual Mode: Custom Ranges -->
-                            <div id="sheets-mode-manual" style="display: none;">
-                                <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
-                                    💡 Ajoutez des configurations d'extraction personnalisées (feuille, colonnes,
-                                    lignes)
-                                </p>
-
-                                <!-- Add Range Form -->
+                            <div id="prep-file-info" style="margin-top: 16px; display: none;">
                                 <div
-                                    style="display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
-                                    <div style="flex: 2; min-width: 120px;">
-                                        <label
-                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Feuille</label>
-                                        <input type="text" id="range-sheet" placeholder="Feuil1"
-                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                    </div>
-                                    <div style="flex: 1; min-width: 60px;">
-                                        <label
-                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
-                                            début</label>
-                                        <input type="text" id="range-col-start" placeholder="A" maxlength="2"
-                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
-                                    </div>
-                                    <div style="flex: 1; min-width: 60px;">
-                                        <label
-                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Col.
-                                            fin</label>
-                                        <input type="text" id="range-col-end" placeholder="Z" maxlength="2"
-                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; text-transform: uppercase;">
-                                    </div>
-                                    <div style="flex: 1; min-width: 60px;">
-                                        <label
-                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
-                                            début</label>
-                                        <input type="number" id="range-row-start" placeholder="1" min="1"
-                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                    </div>
-                                    <div style="flex: 1; min-width: 60px;">
-                                        <label
-                                            style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px;">Ligne
-                                            fin</label>
-                                        <input type="number" id="range-row-end" placeholder="100" min="1"
-                                            style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                    </div>
-                                    <button class="btn btn-primary btn-sm" onclick="addSheetRange()"
-                                        style="padding: 8px 16px;">+ Ajouter</button>
-                                </div>
-
-                                <!-- Ranges List -->
-                                <div id="sheet-ranges-list">
-                                    <div class="empty-state">
-                                        <span>📋</span>
-                                        <p>Aucune configuration ajoutée</p>
+                                    style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">
+                                    <span style="font-size: 24px;">✅</span>
+                                    <div>
+                                        <div id="prep-file-name" style="font-weight: 600; color: #166534;">
+                                        </div>
+                                        <div id="prep-file-sheets" style="font-size: 13px; color: #15803d;">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Step 4: Output & Generate -->
+                    <!-- Step 2: Analysis Results -->
                     <div class="card consbulle-step">
                         <div class="card-header">
-                            <h3>📊 Génération</h3>
+                            <h3>📊 2. Analyse du Fichier</h3>
                         </div>
                         <div class="card-body">
-                            <!-- Output filename -->
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label style="font-weight: 500; margin-bottom: 6px; display: block;">Nom du fichier de
-                                    sortie</label>
-                                <input type="text" id="cb-output-filename" value="Consolidation"
-                                    placeholder="Nom du fichier..."
-                                    style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                            </div>
-
-                            <!-- Mode selector -->
-                            <div class="form-group" style="margin-bottom: 16px;">
-                                <label style="font-weight: 500; margin-bottom: 6px; display: block;">Mode de
-                                    consolidation</label>
-                                <select id="cb-mode" onchange="updateModeOptions()"
-                                    style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;">
-                                    <option value="simple">📋 Simple (Empilage) - Tableaux un en dessous de l'autre
-                                    </option>
-                                    <option value="synthesis">📊 Avec Synthèse - Comparaison et récapitulatif</option>
-                                    <option value="statistics">📈 Avec Statistiques - Somme, Moyenne, Min, Max</option>
-                                    <option value="graphs">📉 Avec Graphiques - Visualisations et charts</option>
-                                    <option value="complete">🎯 Complet - Tout inclus (Synthèse + Stats + Graphiques)
-                                    </option>
-                                </select>
-                            </div>
-
-                            <!-- Dynamic Mode Options -->
-                            <div id="mode-options-container" style="margin-bottom: 16px;">
-                                <!-- Options pour Statistiques -->
-                                <div id="options-statistics" class="mode-options"
-                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <p style="font-weight: 600; margin-bottom: 12px;">📈 Analyses Statistiques</p>
-
-                                    <!-- Basic Stats -->
-                                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">📊
-                                        Statistiques de base</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 12px;">
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-sum" checked> ∑ Somme
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-avg" checked> x̄ Moyenne
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-median"> M̃ Médiane
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-mode"> Mo Mode
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-count"> # Nombre
-                                        </label>
-                                    </div>
-
-                                    <!-- Dispersion -->
-                                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">📉
-                                        Dispersion</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 12px;">
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-min" checked> ↓ Min
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-max" checked> ↑ Max
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-range"> ↕ Étendue
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-stdev"> σ Écart-type
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-var"> σ² Variance
-                                        </label>
-                                    </div>
-
-                                    <!-- Percentiles -->
-                                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">📐
-                                        Percentiles</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; margin-bottom: 12px;">
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-q1"> Q1 (25%)
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-q2"> Q2 (50%)
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-q3"> Q3 (75%)
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-iqr"> IQR
-                                        </label>
-                                    </div>
-
-                                    <!-- Advanced -->
-                                    <p style="font-size: 12px; color: #64748b; margin-bottom: 8px; font-weight: 500;">🔬
-                                        Avancé</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px;">
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-skew"> Asymétrie (Skewness)
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-kurt"> Aplatissement (Kurtosis)
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-cv"> Coef. Variation
-                                        </label>
-                                        <label
-                                            style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
-                                            <input type="checkbox" name="stat-corr"> Corrélation
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Options pour Synthèse -->
-                                <div id="options-synthesis" class="mode-options"
-                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <p style="font-weight: 600; margin-bottom: 12px;">📊 Options Synthèse</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="synth-recap" checked> 📋 Récapitulatif
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="synth-compare" checked> ⚖️ Comparaison
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="synth-diff"> ± Différences
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="synth-rank"> 🏆 Classement
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Options pour Graphiques -->
-                                <div id="options-graphs" class="mode-options"
-                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <p style="font-weight: 600; margin-bottom: 12px;">📉 Types de Graphiques</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="chart-bar" checked> 📊 Barres
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="chart-line" checked> 📈 Lignes
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="chart-pie"> 🥧 Camembert
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="chart-area"> 📐 Aires
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <!-- Options pour Complet -->
-                                <div id="options-complete" class="mode-options"
-                                    style="display: none; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <p style="font-weight: 600; margin-bottom: 12px;">🎯 Mode Complet - Toutes les
-                                        options</p>
-                                    <div
-                                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="complete-dashboard" checked> 🎯 Dashboard
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="complete-synthesis" checked> 📊 Synthèse
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="complete-stats" checked> 📈 Statistiques
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                            <input type="checkbox" name="complete-charts" checked> 📉 Graphiques
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Preview -->
-                            <div id="consbulle-preview" class="consbulle-preview" style="margin-bottom: 16px;">
+                            <div id="prep-analysis-results">
                                 <div class="empty-state">
-                                    <span>📊</span>
-                                    <p>Cliquez "Aperçu" pour voir la structure</p>
+                                    <span>🔍</span>
+                                    <p>Chargez un fichier pour voir l'analyse</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Sheet Selection with Grouping -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>📋 3. Sélection des Feuilles (Groupées par Mots Communs)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="prep-sheets-grouped">
+                                <div class="empty-state">
+                                    <span>📑</span>
+                                    <p>Les feuilles seront groupées automatiquement</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Generate Template -->
+                    <div class="card consbulle-step">
+                        <div class="card-header">
+                            <h3>⚙️ 4. Options de Génération</h3>
+                        </div>
+                        <div class="card-body">
+                            <div
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                                <label
+                                    style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f8fafc; border-radius: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="prep-keep-formulas" checked>
+                                    <span><strong>📐 Garder les formules</strong><br><small style="color: #64748b;">Les
+                                            % seront recalculés</small></span>
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f8fafc; border-radius: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="prep-keep-constants" checked>
+                                    <span><strong>🔢 Garder les constantes</strong><br><small
+                                            style="color: #64748b;">Chiffres
+                                            isolés non modifiables</small></span>
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #f8fafc; border-radius: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="prep-clear-data" checked>
+                                    <span><strong>🗑️ Vider les données</strong><br><small
+                                            style="color: #64748b;">Cellules de
+                                            saisie vidées</small></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                <div style="flex: 1;">
+                                    <label style="display: block; margin-bottom: 6px; font-weight: 500;">Nom du
+                                        fichier
+                                        de sortie</label>
+                                    <input type="text" id="prep-output-filename" value="fichier_remplir_consolidation"
+                                        style="width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px;">
                                 </div>
                             </div>
 
-                            <!-- Actions -->
                             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                                <button class="btn btn-secondary" onclick="previewConsBulle()">👁️ Aperçu</button>
-                                <button class="btn btn-info" onclick="viewTree()"
-                                    style="background-color: #0ea5e9; border-color: #0ea5e9; color: white;">🌳
-                                    Arbre</button>
-                                <button class="btn btn-primary" onclick="generateConsBulle()"
-                                    id="btn-generate-consbulle">
-                                    📥 Générer Excel
+                                <button class="btn btn-secondary" onclick="analyzeSourceFile()">🔍
+                                    Analyser</button>
+                                <button class="btn btn-primary" onclick="generateTemplate()" id="btn-generate-template"
+                                    disabled>
+                                    📥 Générer le Modèle Vide
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Save/Load Section -->
-                <div class="card" style="margin-top: 20px;">
-                    <div class="card-header">
-                        <h3>💾 Configurations Sauvegardées</h3>
-                        <button class="btn btn-sm btn-primary" onclick="saveCurrentConfig()">💾 Sauvegarder</button>
-                    </div>
-                    <div class="card-body">
-                        <div id="saved-configs-list">
-                            <p style="color: #64748b; font-size: 13px;">Aucune configuration sauvegardée</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Documentation Slide -->
-                <div class="card" style="margin-top: 20px; border-left: 4px solid #6366f1;">
-                    <div class="card-header" style="cursor: pointer;" onclick="toggleConsDoc()">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <h3 style="color: #4f46e5;">📘 Guide d'Utilisation Consolidation</h3>
-                            <span id="cons-doc-icon">▼</span>
-                        </div>
-                    </div>
-                    <div id="cons-doc-content" class="card-body" style="display: none; background: #f8fafc;">
-                        <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">
-                            <div>
-                                <h4 style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">1.
-                                    Sélection des Fichiers</h4>
-                                <p style="font-size: 13px; color: #64748b;">Glissez-déposez vos fichiers Excel (.xlsx)
-                                    dans la zone dédiée. Ils apparaîtront dans la liste.</p>
-                            </div>
-                            <div>
-                                <h4 style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">2.
-                                    Configuration</h4>
-                                <ul style="font-size: 13px; color: #64748b; padding-left: 16px; margin: 0;">
-                                    <li><strong>Auto Mode</strong> : Charge toutes les feuilles visibles.</li>
-                                    <li><strong>Manuel Mode</strong> : Définissez précisément la feuille et les plages
-                                        (ex: A1:F50).</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 8px;">3.
-                                    Options de Sortie</h4>
-                                <p style="font-size: 13px; color: #64748b;">Choisissez entre une consolidation simple
-                                    (empilée), ou l'ajout de statistiques, graphiques et pages de synthèse.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <script>
-                    function toggleConsDoc() {
-                        const content = document.getElementById('cons-doc-content');
-                        const icon = document.getElementById('cons-doc-icon');
-                        if (content.style.display === 'none') {
-                            content.style.display = 'block';
-                            icon.textContent = '▲';
+                    // File Preparation Module Logic
+                    let prepData = {
+                        file: null,
+                        sheets: [],
+                        selectedSheets: [],
+                        analysis: null
+                    };
+
+                    // File drop zone handler
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const dropZone = document.getElementById('prep-file-drop-zone');
+                        const fileInput = document.getElementById('prep-source-file');
+
+                        if (dropZone && fileInput) {
+                            dropZone.addEventListener('click', () => fileInput.click());
+                            dropZone.addEventListener('dragover', (e) => {
+                                e.preventDefault();
+                                dropZone.style.borderColor = '#3b82f6';
+                                dropZone.style.backgroundColor = '#eff6ff';
+                            });
+                            dropZone.addEventListener('dragleave', () => {
+                                dropZone.style.borderColor = '#cbd5e1';
+                                dropZone.style.backgroundColor = 'transparent';
+                            });
+                            dropZone.addEventListener('drop', (e) => {
+                                e.preventDefault();
+                                dropZone.style.borderColor = '#cbd5e1';
+                                dropZone.style.backgroundColor = 'transparent';
+                                if (e.dataTransfer.files.length > 0) {
+                                    handlePrepFile(e.dataTransfer.files[0]);
+                                }
+                            });
+                            fileInput.addEventListener('change', (e) => {
+                                if (e.target.files.length > 0) {
+                                    handlePrepFile(e.target.files[0]);
+                                }
+                            });
+                        }
+                    });
+
+                    async function handlePrepFile(file) {
+                        prepData.file = file;
+                        document.getElementById('prep-file-name').textContent = file.name;
+                        document.getElementById('prep-file-info').style.display = 'block';
+
+                        // Parse sheets
+                        const formData = new FormData();
+                        formData.append('files', file);
+
+                        try {
+                            const response = await fetch('/api/consbulle/parse-sheets/', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                prepData.sheets = data.file_sheets[file.name] || [];
+                                prepData.selectedSheets = [...prepData.sheets];
+                                document.getElementById('prep-file-sheets').textContent = prepData.sheets.length + ' feuille(s) détectée(s)';
+                                renderGroupedSheets();
+                                document.getElementById('btn-generate-template').disabled = false;
+                            }
+                        } catch (error) {
+                            console.error('Error parsing file:', error);
+                        }
+                    }
+
+                    function renderGroupedSheets() {
+                        const container = document.getElementById('prep-sheets-grouped');
+                        if (prepData.sheets.length === 0) {
+                            container.innerHTML = '<div class="empty-state"><span>📑</span><p>Aucune feuille détectée</p></div>';
+                            return;
+                        }
+
+                        // Group sheets by common words
+                        const groups = {};
+                        prepData.sheets.forEach(sheet => {
+                            // Extract first word as group key
+                            const words = sheet.split(/[\s_-]+/);
+                            const groupKey = words[0] || 'Autres';
+                            if (!groups[groupKey]) groups[groupKey] = [];
+                            groups[groupKey].push(sheet);
+                        });
+
+                        let html = '<div style="display: flex; flex-direction: column; gap: 16px;">';
+                        Object.keys(groups).sort().forEach(groupName => {
+                            html += `
+                                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                                    <div style="background: #f8fafc; padding: 10px 14px; font-weight: 600; border-bottom: 1px solid #e2e8f0;">
+                                        📁 ${groupName} (${groups[groupName].length})
+                                    </div>
+                                    <div style="padding: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+                            `;
+                            groups[groupName].forEach(sheet => {
+                                const isSelected = prepData.selectedSheets.includes(sheet);
+                                const safeSheet = sheet.replace(/'/g, "\\'");
+                                html += `
+                                    <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isSelected ? '#dbeafe' : '#f1f5f9'}; border-radius: 6px; cursor: pointer; border: 1px solid ${isSelected ? '#3b82f6' : '#e2e8f0'};">
+                                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="togglePrepSheet('${safeSheet}')">
+                                        <span style="font-size: 13px;">${sheet}</span>
+                                    </label>
+                                `;
+                            });
+                            html += '</div></div>';
+                        });
+                        html += '</div>';
+                        container.innerHTML = html;
+                    }
+
+                    function togglePrepSheet(sheetName) {
+                        const index = prepData.selectedSheets.indexOf(sheetName);
+                        if (index > -1) {
+                            prepData.selectedSheets.splice(index, 1);
                         } else {
-                            content.style.display = 'none';
-                            icon.textContent = '▼';
+                            prepData.selectedSheets.push(sheetName);
+                        }
+                        renderGroupedSheets();
+                    }
+
+                    async function analyzeSourceFile() {
+                        if (!prepData.file) {
+                            alert('Veuillez d\'abord charger un fichier');
+                            return;
+                        }
+
+                        const formData = new FormData();
+                        formData.append('file', prepData.file);
+                        formData.append('sheets', JSON.stringify(prepData.selectedSheets));
+
+                        try {
+                            const response = await fetch('/api/prep-file/analyze/', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                prepData.analysis = data;
+                                renderAnalysisResults(data);
+                            } else {
+                                alert('Erreur lors de l\'analyse');
+                            }
+                        } catch (error) {
+                            console.error('Error analyzing file:', error);
+                            alert('Erreur: ' + error.message);
+                        }
+                    }
+
+                    function renderAnalysisResults(data) {
+                        const container = document.getElementById('prep-analysis-results');
+                        container.innerHTML = `
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                                <div style="background: #f0fdf4; padding: 16px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: 700; color: #166534;">${data.total_cells || 0}</div>
+                                    <div style="font-size: 12px; color: #15803d;">Cellules Total</div>
+                                </div>
+                                <div style="background: #fef3c7; padding: 16px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: 700; color: #92400e;">${data.data_cells || 0}</div>
+                                    <div style="font-size: 12px; color: #a16207;">Données à Vider</div>
+                                </div>
+                                <div style="background: #dbeafe; padding: 16px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: 700; color: #1e40af;">${data.formula_cells || 0}</div>
+                                    <div style="font-size: 12px; color: #1d4ed8;">Formules à Garder</div>
+                                </div>
+                                <div style="background: #f3e8ff; padding: 16px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 28px; font-weight: 700; color: #6b21a8;">${data.constant_cells || 0}</div>
+                                    <div style="font-size: 12px; color: #7c3aed;">Constantes</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    async function generateTemplate() {
+                        if (!prepData.file) {
+                            alert('Veuillez d\'abord charger un fichier');
+                            return;
+                        }
+
+                        const btn = document.getElementById('btn-generate-template');
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Génération...';
+
+                        const formData = new FormData();
+                        formData.append('file', prepData.file);
+                        formData.append('sheets', JSON.stringify(prepData.selectedSheets));
+                        formData.append('keep_formulas', document.getElementById('prep-keep-formulas').checked);
+                        formData.append('keep_constants', document.getElementById('prep-keep-constants').checked);
+                        formData.append('clear_data', document.getElementById('prep-clear-data').checked);
+                        formData.append('output_filename', document.getElementById('prep-output-filename').value || 'fichier_remplir_consolidation');
+
+                        try {
+                            const response = await fetch('/api/prep-file/generate/', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (response.ok) {
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = (document.getElementById('prep-output-filename').value || 'fichier_remplir_consolidation') + '.xlsx';
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                                a.remove();
+                            } else {
+                                const error = await response.json();
+                                alert('Erreur: ' + (error.error || 'Erreur inconnue'));
+                            }
+                        } catch (error) {
+                            console.error('Error generating template:', error);
+                            alert('Erreur: ' + error.message);
+                        } finally {
+                            btn.disabled = false;
+                            btn.textContent = '📥 Générer le Modèle Vide';
                         }
                     }
                 </script>
@@ -1867,6 +2511,82 @@ Créer un tableau budget BP 2026 avec:
                     style="padding: 40px; display: flex; justify-content: center; min-width: 100%;">
                     <!-- Tree content will be generated here -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Preview Bar (Fixed at Bottom) -->
+    <div id="file-preview-bar"
+        style="position: fixed; bottom: 0; left: 240px; right: 0; height: auto; background: white; border-top: 2px solid #e2e8f0; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 100; display: none;">
+        <!-- Collapse/Expand Toggle -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); cursor: pointer;"
+            onclick="togglePreviewBar()">
+            <span style="font-weight: 600; color: #1e293b;">📂 Aperçu des Fichiers</span>
+            <span id="preview-bar-toggle-icon" style="font-size: 18px;">▼</span>
+        </div>
+
+        <!-- Content (Collapsible) -->
+        <div id="preview-bar-content" style="display: flex; gap: 16px; padding: 12px 16px; max-height: 200px;">
+            <!-- Left: Source Files -->
+            <div style="flex: 1; background: #f8fafc; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 600; font-size: 13px; color: #3b82f6;">📂 Fichiers Sources</span>
+                    <span id="preview-source-count"
+                        style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
+                </div>
+                <div id="preview-source-files-list"
+                    style="max-height: 120px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px;">
+                    <span style="color: #94a3b8; font-size: 12px;">Aucun fichier</span>
+                </div>
+            </div>
+
+            <!-- Right: Generated File -->
+            <div style="flex: 1; background: #f0fdf4; border-radius: 8px; padding: 12px; border: 1px solid #bbf7d0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 600; font-size: 13px; color: #10b981;">📊 Fichier Généré</span>
+                </div>
+                <div id="preview-generated-file" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #94a3b8; font-size: 12px;">Aucun fichier généré</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel File Preview Modal -->
+    <div id="excel-preview-modal" class="modal"
+        style="display: none; background: rgba(0,0,0,0.6); position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1001;">
+        <div class="modal-content"
+            style="background: white; margin: 2% auto; width: 90%; max-width: 1200px; height: 90vh; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding: 16px 20px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-radius: 12px 12px 0 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">📊</span>
+                    <h2 style="margin: 0; color: white; font-size: 18px;" id="preview-modal-title">Aperçu du fichier
+                    </h2>
+                </div>
+                <button onclick="closeExcelPreview()"
+                    style="background: rgba(255,255,255,0.2); border: none; font-size: 20px; cursor: pointer; color: white; width: 36px; height: 36px; border-radius: 8px;">&times;</button>
+            </div>
+
+            <!-- Sheet tabs -->
+            <div id="preview-sheet-tabs"
+                style="display: flex; gap: 4px; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; overflow-x: auto;">
+                <!-- Sheet tabs will be generated here -->
+            </div>
+
+            <div class="modal-body" style="flex: 1; overflow: auto; padding: 16px;">
+                <div id="preview-loading" style="display: none; text-align: center; padding: 40px;">
+                    <span style="font-size: 32px;">⏳</span>
+                    <p>Chargement du fichier...</p>
+                </div>
+                <div id="preview-table-container" style="overflow: auto;">
+                    <!-- Table will be rendered here -->
+                </div>
+            </div>
+
+            <div class="modal-footer"
+                style="padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px;">
+                <button class="btn btn-secondary" onclick="closeExcelPreview()">Fermer</button>
             </div>
         </div>
     </div>

@@ -30,6 +30,11 @@ CONSOLIDATION_MODES = {
         'description': 'Empiler les tableaux un en dessous de l\'autre',
         'icon': '📋'
     },
+    'template': {
+        'name': 'Avec Modèle (Somme)',
+        'description': 'Utiliser un modèle vide et remplir avec les SOMMES',
+        'icon': '📄'
+    },
     'synthesis': {
         'name': 'Avec Synthèse',
         'description': 'Comparaison et récapitulatif entre sites',
@@ -100,6 +105,9 @@ class MultiModeConsolidationAPIView(View):
             # Dispatch to appropriate handler
             if mode == 'simple':
                 self._consolidate_simple(wb, files, sheet_name, selected_sheets)
+            elif mode == 'template':
+                template_file = request.FILES.get('template_file')
+                self._consolidate_template(wb, files, template_file, selected_sheets)
             elif mode == 'synthesis':
                 self._consolidate_synthesis(wb, files, sheet_name, options.get('synthesis', {}))
             elif mode == 'statistics':
@@ -137,61 +145,211 @@ class MultiModeConsolidationAPIView(View):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
     # =====================================
-    # MODE 1: SIMPLE (Empilage)
+    # MODE 1: SIMPLE (Somme - Premier fichier comme modèle)
     # =====================================
     
     def _consolidate_simple(self, wb, files, target_sheet='', selected_sheets=None):
-        """Stack tables one below another"""
+        """Use first file as template and fill with SUM of all source files"""
         
-        # Styles
-        header_fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        separator_fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
-        border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
+        if len(files) == 0:
+            return
         
-        # Get unique sheets across all files
-        all_sheets = set()
-        for f in files:
-            try:
-                src_wb = load_workbook(f, read_only=True)
-                all_sheets.update(src_wb.sheetnames)
-                src_wb.close()
-                f.seek(0)  # Reset file pointer
-            except:
-                pass
+        # Use first file as template
+        first_file = files[0]
         
-        # Filter sheets
+        try:
+            template_wb = load_workbook(first_file, data_only=False)
+        except Exception as e:
+            print(f"Error loading template: {e}")
+            return
+        
+        first_file.seek(0)
+        
+        # Get sheets to process
         if target_sheet:
-            sheets_to_process = [target_sheet] if target_sheet in all_sheets else list(all_sheets)[:1]
+            sheets_to_process = [target_sheet] if target_sheet in template_wb.sheetnames else template_wb.sheetnames[:1]
         elif selected_sheets and len(selected_sheets) > 0:
-            sheets_to_process = [s for s in all_sheets if s in selected_sheets]
+            sheets_to_process = [s for s in template_wb.sheetnames if s in selected_sheets]
         else:
-            sheets_to_process = list(all_sheets)
+            sheets_to_process = list(template_wb.sheetnames)
         
         # Process each sheet
         for sheet_name in sheets_to_process:
-            # Create or get destination sheet
+            if sheet_name not in template_wb.sheetnames:
+                continue
+            
+            template_ws = template_wb[sheet_name]
+            
+            # Create destination sheet
             if sheet_name in wb.sheetnames:
-                ws = wb[sheet_name]
+                dest_ws = wb[sheet_name]
             else:
-                ws = wb.create_sheet(title=sheet_name[:31])
+                dest_ws = wb.create_sheet(title=sheet_name[:31])
             
-            current_row = 1
-            max_cols = 1
+            # Get max row and column for iteration
+            max_row = template_ws.max_row or 1
+            max_col = template_ws.max_column or 1
             
-            # Process each file
+            # Build map of positions for numeric values
+            sum_positions = {}  # {(row, col): [values]}
+            
+            # First pass: Copy template structure
+            for row_idx in range(1, max_row + 1):
+                for col_idx in range(1, max_col + 1):
+                    cell = template_ws.cell(row=row_idx, column=col_idx)
+                    dest_cell = dest_ws.cell(row=row_idx, column=col_idx)
+                    
+                    # Copy value
+                    dest_cell.value = cell.value
+                    
+                    # Copy basic formatting (simplified, no complex fill)
+                    try:
+                        if cell.font and cell.font.bold:
+                            dest_cell.font = Font(bold=True, size=cell.font.size, name=cell.font.name)
+                        if cell.number_format and cell.number_format != 'General':
+                            dest_cell.number_format = cell.number_format
+                    except:
+                        pass
+                    
+                    # Identify numeric cells for summing
+                    if cell.value is not None:
+                        # Skip formulas (keep them as-is)
+                        if isinstance(cell.value, str) and cell.value.startswith('='):
+                            continue
+                        # Skip text
+                        if isinstance(cell.value, str):
+                            continue
+                        # This is a number - mark for summing
+                        if isinstance(cell.value, (int, float)):
+                            sum_positions[(row_idx, col_idx)] = []
+            
+            # Second pass: Collect values from ALL files
             for f in files:
-                # Skip temporary Excel files (created when file is open)
                 if f.name.startswith('~$'):
                     continue
-                    
                 try:
                     src_wb = load_workbook(f, data_only=True)
+                    if sheet_name in src_wb.sheetnames:
+                        src_ws = src_wb[sheet_name]
+                        for (row_idx, col_idx), values in sum_positions.items():
+                            try:
+                                src_val = src_ws.cell(row=row_idx, column=col_idx).value
+                                if src_val is not None and isinstance(src_val, (int, float)):
+                                    values.append(src_val)
+                            except:
+                                pass
+                    src_wb.close()
+                except Exception as e:
+                    print(f"Error reading {f.name}: {e}")
+                finally:
+                    f.seek(0)
+            
+            # Third pass: Fill with sums
+            for (row_idx, col_idx), values in sum_positions.items():
+                if values:
+                    dest_ws.cell(row=row_idx, column=col_idx).value = sum(values)
+            
+            # Set column widths
+            for col_idx in range(1, max_col + 1):
+                col_letter = get_column_letter(col_idx)
+                dest_ws.column_dimensions[col_letter].width = 15
+        
+        template_wb.close()
+
+
+    
+    # =====================================
+    # MODE 1.5: TEMPLATE (Modèle avec Somme)
+    # =====================================
+    
+    def _consolidate_template(self, wb, files, template_file, selected_sheets=None):
+        """Use a template file as base structure and fill with SUM of source files"""
+        
+        if not template_file:
+            raise ValueError("Fichier modèle manquant")
+        
+        # Load template (with formulas preserved)
+        template_wb = load_workbook(template_file, data_only=False)
+        
+        # Process each sheet in template
+        sheets_to_process = selected_sheets if selected_sheets else template_wb.sheetnames
+        
+        for sheet_name in sheets_to_process:
+            if sheet_name not in template_wb.sheetnames:
+                continue
+            
+            template_ws = template_wb[sheet_name]
+            
+            # Create destination sheet
+            if sheet_name in wb.sheetnames:
+                dest_ws = wb[sheet_name]
+            else:
+                dest_ws = wb.create_sheet(title=sheet_name[:31])
+            
+            # First: Copy template structure (including formulas)
+            for row_idx, row in enumerate(template_ws.iter_rows(), 1):
+                for col_idx, cell in enumerate(row, 1):
+                    dest_cell = dest_ws.cell(row=row_idx, column=col_idx)
+                    
+                    # Copy value (including formulas)
+                    dest_cell.value = cell.value
+                    
+                    # Copy styles
+                    if cell.font:
+                        try:
+                            dest_cell.font = Font(
+                                name=cell.font.name,
+                                size=cell.font.size,
+                                bold=cell.font.bold,
+                                italic=cell.font.italic,
+                                color=cell.font.color.rgb if cell.font.color and cell.font.color.rgb else None
+                            )
+                        except:
+                            pass
+                    if cell.fill and cell.fill.start_color:
+                        try:
+                            dest_cell.fill = PatternFill(
+                                start_color=cell.fill.start_color.rgb if cell.fill.start_color.rgb else "FFFFFF",
+                                end_color=cell.fill.end_color.rgb if cell.fill.end_color.rgb else "FFFFFF",
+                                fill_type=cell.fill.fill_type or "solid"
+                            )
+                        except:
+                            pass
+                    if cell.alignment:
+                        try:
+                            dest_cell.alignment = Alignment(
+                                horizontal=cell.alignment.horizontal,
+                                vertical=cell.alignment.vertical,
+                                wrap_text=cell.alignment.wrap_text
+                            )
+                        except:
+                            pass
+                    if cell.number_format:
+                        dest_cell.number_format = cell.number_format
+            
+            # Second: For numeric cells (not formulas), collect and SUM values from source files
+            # Build a map of cell positions that should be filled with sums
+            sum_positions = {}  # {(row, col): [values_from_files]}
+            
+            for row_idx, row in enumerate(template_ws.iter_rows(), 1):
+                for col_idx, cell in enumerate(row, 1):
+                    # Skip formulas and empty cells
+                    if cell.value is None:
+                        continue
+                    if isinstance(cell.value, str) and cell.value.startswith('='):
+                        continue  # Formula - keep as is
+                    if isinstance(cell.value, str):
+                        continue  # Text label - keep as is
+                    
+                    # This is a numeric cell - mark for summing
+                    sum_positions[(row_idx, col_idx)] = []
+            
+            # Collect values from source files at same positions
+            for f in files:
+                if f.name.startswith('~$'):
+                    continue
+                try:
+                    src_wb = load_workbook(f, data_only=True)  # data_only to get calculated values
                     
                     if sheet_name not in src_wb.sheetnames:
                         src_wb.close()
@@ -200,89 +358,29 @@ class MultiModeConsolidationAPIView(View):
                     
                     src_ws = src_wb[sheet_name]
                     
-                    # Add file separator/header
-                    ws.merge_cells(start_row=current_row, start_column=1, 
-                                  end_row=current_row, end_column=max(10, src_ws.max_column))
-                    cell = ws.cell(row=current_row, column=1, value=f"📄 {f.name}")
-                    cell.fill = header_fill
-                    cell.font = header_font
-                    cell.alignment = Alignment(horizontal='left', vertical='center')
-                    current_row += 1
-                    
-                    # Copy data with formatting
-                    for row_idx, row in enumerate(src_ws.iter_rows(min_row=1, max_row=src_ws.max_row), start=1):
-                        for col_idx, cell in enumerate(row, start=1):
-                            dest_cell = ws.cell(row=current_row, column=col_idx, value=cell.value)
-                            
-                            # Copy formatting
-                            if cell.font:
-                                dest_cell.font = Font(
-                                    name=cell.font.name,
-                                    size=cell.font.size,
-                                    bold=cell.font.bold,
-                                    italic=cell.font.italic,
-                                    color=cell.font.color
-                                )
-                            if cell.fill and cell.fill.patternType:
-                                try:
-                                    dest_cell.fill = PatternFill(
-                                        patternType=cell.fill.patternType,
-                                        fgColor=cell.fill.fgColor.rgb if cell.fill.fgColor else None,
-                                        bgColor=cell.fill.bgColor.rgb if cell.fill.bgColor else None
-                                    )
-                                except:
-                                    pass
-                            if cell.border:
-                                try:
-                                    dest_cell.border = Border(
-                                        left=Side(style=cell.border.left.style, color=cell.border.left.color.rgb if cell.border.left.color else None) if cell.border.left else None,
-                                        right=Side(style=cell.border.right.style, color=cell.border.right.color.rgb if cell.border.right.color else None) if cell.border.right else None,
-                                        top=Side(style=cell.border.top.style, color=cell.border.top.color.rgb if cell.border.top.color else None) if cell.border.top else None,
-                                        bottom=Side(style=cell.border.bottom.style, color=cell.border.bottom.color.rgb if cell.border.bottom.color else None) if cell.border.bottom else None
-                                    )
-                                except:
-                                    pass
-                            if cell.alignment:
-                                try:
-                                    dest_cell.alignment = Alignment(
-                                        horizontal=cell.alignment.horizontal,
-                                        vertical=cell.alignment.vertical,
-                                        wrap_text=cell.alignment.wrap_text,
-                                        shrink_to_fit=cell.alignment.shrink_to_fit
-                                    )
-                                except:
-                                    pass
-                            if cell.number_format:
-                                dest_cell.number_format = cell.number_format
-                            
-                            max_cols = max(max_cols, col_idx)
-                        
-                        current_row += 1
-                    
-                    # Auto-fit column widths based on content
-                    for col_idx in range(1, max_cols + 1):
-                        max_length = 0
-                        col_letter = get_column_letter(col_idx)
-                        for row in ws.iter_rows(min_col=col_idx, max_col=col_idx, min_row=1, max_row=ws.max_row):
-                            for cell in row:
-                                if cell.value:
-                                    cell_length = len(str(cell.value))
-                                    max_length = max(max_length, cell_length)
-                        # Set width with some padding
-                        adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
-                        if adjusted_width > 8:  # Only adjust if content is significant
-                            ws.column_dimensions[col_letter].width = adjusted_width
-                    
-                    # Add spacing between files
-                    current_row += 2
+                    for (row_idx, col_idx), values in sum_positions.items():
+                        try:
+                            src_cell = src_ws.cell(row=row_idx, column=col_idx)
+                            if src_cell.value is not None and isinstance(src_cell.value, (int, float)):
+                                values.append(src_cell.value)
+                        except:
+                            pass
                     
                     src_wb.close()
                     f.seek(0)
-                    
                 except Exception as e:
-                    ws.cell(row=current_row, column=1, value=f"Erreur: {f.name} - {str(e)}")
-                    current_row += 2
-                    current_row += 2
+                    print(f"Error reading {f.name}: {e}")
+                    f.seek(0)
+            
+            # Fill template cells with SUM of collected values
+            for (row_idx, col_idx), values in sum_positions.items():
+                if values:
+                    dest_ws.cell(row=row_idx, column=col_idx).value = sum(values)
+                else:
+                    # No values found - clear the cell (leave it empty for manual input)
+                    dest_ws.cell(row=row_idx, column=col_idx).value = None
+        
+        template_wb.close()
     
     # =====================================
     # MODE 2: SYNTHESIS (Comparaison)

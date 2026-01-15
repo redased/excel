@@ -15,7 +15,9 @@ let consBulleData = {
     selectedSheets: [],      // User-selected sheets (for auto mode)
     sheetMode: 'auto',       // 'auto' or 'manual'
     sheetRanges: [],         // Manual ranges: [{sheet, colStart, colEnd, rowStart, rowEnd}]
-    savedConfigs: []
+    savedConfigs: [],
+    templateFile: null,      // Template file for template mode
+    sheetGroupRules: []      // Custom grouping rules: [{prefix: 'BP', name: 'Budget Prévisionnel'}]
 };
 
 // ============================================
@@ -26,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('ConsBulle V2 loaded');
     initConsBulle();
     loadSavedConfigs();
+    loadSheetGroupRules();
 });
 
 function initConsBulle() {
@@ -33,7 +36,59 @@ function initConsBulle() {
     renderSites();
     renderSheets();
     initFolderDropZone();
+    initTemplateDropZone();
     updateModeOptions(); // Initialize mode options
+
+    // Force initialize tab
+    if (typeof switchConsBulleTab === 'function') {
+        switchConsBulleTab('config');
+    }
+}
+
+// Initialize template file drop zone
+function initTemplateDropZone() {
+    const dropZone = document.getElementById('template-file-drop-zone');
+    const fileInput = document.getElementById('template-file-input');
+    const label = document.getElementById('template-file-label');
+
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#f59e0b';
+            dropZone.style.backgroundColor = '#fef3c7';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#fbbf24';
+            dropZone.style.backgroundColor = 'white';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#fbbf24';
+            dropZone.style.backgroundColor = 'white';
+            if (e.dataTransfer.files.length > 0) {
+                handleTemplateFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleTemplateFile(e.target.files[0]);
+            }
+        });
+    }
+}
+
+function handleTemplateFile(file) {
+    consBulleData.templateFile = file;
+    const label = document.getElementById('template-file-label');
+    if (label) {
+        label.textContent = '✅ ' + file.name;
+        label.style.color = '#059669';
+    }
 }
 
 // ============================================
@@ -754,21 +809,78 @@ function renderSheets() {
         return;
     }
 
-    let html = '<div class="sheets-grid">';
+    // Group sheets by custom rules or first word
+    const groups = {};
     consBulleData.allSheets.forEach(sheet => {
-        const isSelected = consBulleData.selectedSheets.includes(sheet);
-        // Escape single quotes for the function call
-        const safeSheet = sheet.replace(/'/g, "\\'");
-        html += `
-            <label class="sheet-checkbox ${isSelected ? 'selected' : ''}">
-                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSheet('${safeSheet}')">
-                <span>📋 ${sheet}</span>
-            </label>
-        `;
+        // Use custom grouping function (respects rules from Settings)
+        const groupKey = getSheetGroupName(sheet);
+        if (!groups[groupKey]) groups[groupKey] = [];
+        groups[groupKey].push(sheet);
     });
-    html += '</div>';
 
+    let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+
+    // Sort group names alphabetically
+    Object.keys(groups).sort().forEach(groupName => {
+        const sheets = groups[groupName];
+        const allSelected = sheets.every(s => consBulleData.selectedSheets.includes(s));
+        const someSelected = sheets.some(s => consBulleData.selectedSheets.includes(s));
+
+        html += `
+            <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                <div style="background: #f8fafc; padding: 10px 14px; font-weight: 600; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <span>📁 ${groupName} (${sheets.length})</span>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal;">
+                        <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleSheetGroup('${groupName}')">
+                        <span>${allSelected ? 'Désélectionner' : 'Tout sélectionner'}</span>
+                    </label>
+                </div>
+                <div style="padding: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+        `;
+
+        sheets.forEach(sheet => {
+            const isSelected = consBulleData.selectedSheets.includes(sheet);
+            const safeSheet = sheet.replace(/'/g, "\\'");
+            html += `
+                <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: ${isSelected ? '#dbeafe' : '#f1f5f9'}; border-radius: 6px; cursor: pointer; border: 1px solid ${isSelected ? '#3b82f6' : '#e2e8f0'}; font-size: 13px;">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSheet('${safeSheet}')">
+                    <span>📋 ${sheet}</span>
+                </label>
+            `;
+        });
+
+        html += '</div></div>';
+    });
+
+    html += '</div>';
     container.innerHTML = html;
+}
+
+// Toggle all sheets in a group
+function toggleSheetGroup(groupName) {
+    const allSheets = consBulleData.allSheets;
+    const groupSheets = allSheets.filter(sheet => {
+        return getSheetGroupName(sheet) === groupName;
+    });
+
+    const allSelected = groupSheets.every(s => consBulleData.selectedSheets.includes(s));
+
+    if (allSelected) {
+        // Deselect all in group
+        groupSheets.forEach(sheet => {
+            const index = consBulleData.selectedSheets.indexOf(sheet);
+            if (index > -1) consBulleData.selectedSheets.splice(index, 1);
+        });
+    } else {
+        // Select all in group
+        groupSheets.forEach(sheet => {
+            if (!consBulleData.selectedSheets.includes(sheet)) {
+                consBulleData.selectedSheets.push(sheet);
+            }
+        });
+    }
+
+    renderSheets();
 }
 
 function toggleSheet(sheetName) {
@@ -1016,6 +1128,11 @@ async function generateConsBulle() {
         allFiles.forEach(file => {
             formData.append('files', file);
         });
+
+        // Add template file if template mode is selected
+        if (mode === 'template' && consBulleData.templateFile) {
+            formData.append('template_file', consBulleData.templateFile);
+        }
 
         // Use the multi-mode consolidation API
         const response = await fetch('/api/consolidation/generate/', {
@@ -1282,3 +1399,836 @@ function getCSRFToken() {
     }
     return '';
 }
+
+// ============================================
+// SHEET GROUPING RULES MANAGEMENT
+// ============================================
+
+function loadSheetGroupRules() {
+    const saved = localStorage.getItem('sheetGroupRules');
+    if (saved) {
+        try {
+            consBulleData.sheetGroupRules = JSON.parse(saved);
+        } catch (e) {
+            consBulleData.sheetGroupRules = [];
+        }
+    }
+
+    // Initialize with default rules if empty
+    if (consBulleData.sheetGroupRules.length === 0) {
+        consBulleData.sheetGroupRules = [
+            { prefix: 'BP', name: '📊 Budget Prévisionnel' },
+            { prefix: 'CC', name: '🏢 Centre de Coûts' },
+            { prefix: 'SRV', name: '🔧 Services' },
+            { prefix: 'STAT', name: '📈 Statistiques' },
+            { prefix: 'RECAP', name: '📋 Récapitulatif' }
+        ];
+        // Save defaults
+        localStorage.setItem('sheetGroupRules', JSON.stringify(consBulleData.sheetGroupRules));
+    }
+
+    renderSheetGroupRules();
+}
+
+function saveSheetGroupRules() {
+    localStorage.setItem('sheetGroupRules', JSON.stringify(consBulleData.sheetGroupRules));
+    alert('✅ Règles de groupement sauvegardées !');
+    renderSheets(); // Refresh sheet display with new rules
+}
+
+function addSheetGroupRule() {
+    const prefixInput = document.getElementById('new-group-prefix');
+    const nameInput = document.getElementById('new-group-name');
+
+    const prefix = prefixInput?.value.trim().toUpperCase();
+    const name = nameInput?.value.trim();
+
+    if (!prefix || !name) {
+        alert('Veuillez remplir le préfixe et le nom du groupe');
+        return;
+    }
+
+    // Check if prefix already exists
+    const exists = consBulleData.sheetGroupRules.some(r => r.prefix === prefix);
+    if (exists) {
+        alert('Ce préfixe existe déjà');
+        return;
+    }
+
+    consBulleData.sheetGroupRules.push({ prefix, name });
+    prefixInput.value = '';
+    nameInput.value = '';
+
+    renderSheetGroupRules();
+}
+
+function deleteSheetGroupRule(prefix) {
+    consBulleData.sheetGroupRules = consBulleData.sheetGroupRules.filter(r => r.prefix !== prefix);
+    renderSheetGroupRules();
+}
+
+function resetSheetGroupRules() {
+    if (confirm('Réinitialiser toutes les règles de groupement ?')) {
+        consBulleData.sheetGroupRules = [];
+        localStorage.removeItem('sheetGroupRules');
+        renderSheetGroupRules();
+        renderSheets();
+    }
+}
+
+function renderSheetGroupRules() {
+    const container = document.getElementById('sheet-group-rules-list');
+    if (!container) return;
+
+    if (consBulleData.sheetGroupRules.length === 0) {
+        container.innerHTML = '<p style="color: #94a3b8; font-size: 13px;">Aucune règle définie. Les feuilles seront groupées par premier mot.</p>';
+        return;
+    }
+
+    let html = '';
+    consBulleData.sheetGroupRules.forEach(rule => {
+        html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f1f5f9; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div>
+                    <span style="font-weight: 600; color: #3b82f6;">${rule.prefix}</span>
+                    <span style="color: #64748b; margin: 0 8px;">→</span>
+                    <span style="color: #0f172a;">${rule.name}</span>
+                </div>
+                <button onclick="deleteSheetGroupRule('${rule.prefix}')" class="btn btn-sm" style="background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px;">🗑️</button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Helper function to get group name for a sheet based on rules
+function getSheetGroupName(sheetName) {
+    const words = sheetName.split(/[\s_-]+/);
+    const firstWord = (words[0] || '').toUpperCase();
+
+    // Check custom rules first
+    const rule = consBulleData.sheetGroupRules.find(r => firstWord.startsWith(r.prefix));
+    if (rule) {
+        return rule.name;
+    }
+
+    // Fallback to first word
+    return words[0] || 'Autres';
+}
+
+// ============================================
+// EXCEL FILE PREVIEW MODAL
+// ============================================
+
+let previewCurrentFile = null;
+
+async function openExcelPreview(file, fileName) {
+    const modal = document.getElementById('excel-preview-modal');
+    const title = document.getElementById('preview-modal-title');
+    const loading = document.getElementById('preview-loading');
+    const tableContainer = document.getElementById('preview-table-container');
+
+    if (!modal) return;
+
+    // Store file reference
+    previewCurrentFile = file;
+
+    // Show modal and loading
+    modal.style.display = 'block';
+    if (title) title.textContent = fileName || 'Aperçu du fichier';
+    if (loading) loading.style.display = 'block';
+    if (tableContainer) tableContainer.innerHTML = '';
+
+    // Load file content
+    await loadPreviewSheet(file, '');
+}
+
+async function loadPreviewSheet(file, sheetName) {
+    const loading = document.getElementById('preview-loading');
+    const tableContainer = document.getElementById('preview-table-container');
+    const sheetTabs = document.getElementById('preview-sheet-tabs');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    if (sheetName) formData.append('sheet_name', sheetName);
+
+    try {
+        const response = await fetch('/api/verify/preview/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': getCSRFToken() }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+
+            // Render sheet tabs
+            if (sheetTabs && data.sheet_names) {
+                sheetTabs.innerHTML = data.sheet_names.map(name => `
+                    <button onclick="changePreviewSheet('${name}')" 
+                        style="padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; 
+                        ${name === data.current_sheet ? 'background: #3b82f6; color: white;' : 'background: white; color: #64748b; border: 1px solid #e2e8f0;'}">
+                        ${name}
+                    </button>
+                `).join('');
+            }
+
+            // Render table
+            if (tableContainer) {
+                tableContainer.innerHTML = renderPreviewTable(data);
+            }
+        } else {
+            if (tableContainer) tableContainer.innerHTML = '<p style="color: red; text-align: center;">Erreur de chargement</p>';
+        }
+    } catch (error) {
+        console.error('Preview error:', error);
+        if (tableContainer) tableContainer.innerHTML = '<p style="color: red; text-align: center;">Erreur: ' + error.message + '</p>';
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+function changePreviewSheet(sheetName) {
+    if (previewCurrentFile) {
+        loadPreviewSheet(previewCurrentFile, sheetName);
+    }
+}
+
+function renderPreviewTable(data) {
+    if (!data.rows || data.rows.length === 0) {
+        return '<p style="text-align: center; color: #94a3b8;">Aucune donnée</p>';
+    }
+
+    let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; font-family: monospace;">';
+
+    // Header row with column letters
+    html += '<thead><tr style="background: #f1f5f9; position: sticky; top: 0;">';
+    html += '<th style="padding: 8px; border: 1px solid #e2e8f0; background: #f1f5f9; min-width: 40px;"></th>';
+    data.headers.forEach(h => {
+        html += `<th style="padding: 8px; border: 1px solid #e2e8f0; background: #e2e8f0; min-width: 80px; font-weight: 600;">${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    // Data rows
+    data.rows.forEach((row, rowIdx) => {
+        const bgColor = rowIdx % 2 === 0 ? 'white' : '#f8fafc';
+        html += `<tr style="background: ${bgColor};">`;
+        html += `<td style="padding: 6px 8px; border: 1px solid #e2e8f0; background: #f1f5f9; font-weight: 600; text-align: center;">${rowIdx + 1}</td>`;
+        row.forEach(cell => {
+            html += `<td style="padding: 6px 8px; border: 1px solid #e2e8f0; white-space: nowrap;">${cell}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    if (data.total_rows > 100) {
+        html += `<p style="text-align: center; color: #94a3b8; margin-top: 16px; font-size: 12px;">Affichage limité à 100 lignes (total: ${data.total_rows})</p>`;
+    }
+
+    return html;
+}
+
+function closeExcelPreview() {
+    const modal = document.getElementById('excel-preview-modal');
+    if (modal) modal.style.display = 'none';
+    previewCurrentFile = null;
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeExcelPreview();
+    }
+});
+
+// ============================================
+// BOTTOM PREVIEW BAR
+// ============================================
+
+let previewBarCollapsed = false;
+let generatedFileBlob = null;
+let generatedFileName = '';
+
+function showPreviewBar() {
+    const bar = document.getElementById('file-preview-bar');
+    if (bar) bar.style.display = 'block';
+}
+
+function hidePreviewBar() {
+    const bar = document.getElementById('file-preview-bar');
+    if (bar) bar.style.display = 'none';
+}
+
+function togglePreviewBar() {
+    const content = document.getElementById('preview-bar-content');
+    const icon = document.getElementById('preview-bar-toggle-icon');
+
+    if (content) {
+        previewBarCollapsed = !previewBarCollapsed;
+        content.style.display = previewBarCollapsed ? 'none' : 'flex';
+        if (icon) icon.textContent = previewBarCollapsed ? '▲' : '▼';
+    }
+}
+
+function updatePreviewBarSourceFiles(files) {
+    const container = document.getElementById('preview-source-files-list');
+    const countEl = document.getElementById('preview-source-count');
+
+    if (!container) return;
+
+    // Store files reference globally
+    window.previewSourceFiles = files;
+
+    if (countEl) countEl.textContent = files.length;
+
+    if (files.length === 0) {
+        container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">Aucun fichier</span>';
+        return;
+    }
+
+    container.innerHTML = files.map((file, idx) => `
+        <button onclick="previewSourceFile(${idx})" 
+            style="padding: 6px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;"
+            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#3b82f6';"
+            onmouseout="this.style.background='white'; this.style.borderColor='#e2e8f0';">
+            <span>📄</span>
+            <span style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${file.name}</span>
+        </button>
+    `).join('');
+
+    // Show the bar
+    showPreviewBar();
+}
+
+// ============================================
+// ANALYSIS DETECTOR
+// ============================================
+
+async function triggerAnalysis() {
+    const scanDepth = document.getElementById('cons-scan-depth').value || 50;
+
+    // Collect all unique filenames that need analysis
+    const uniqueFiles = new Set();
+    consBulleData.responsables.forEach(r => r.sites.forEach(s => {
+        if (s.detected_sheets && s.detected_sheets.length > 0) {
+            uniqueFiles.add(s.filename);
+        }
+    }));
+
+    if (uniqueFiles.size === 0) {
+        alert('Veuillez d\'abord charger des fichiers.');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('scan_depth', scanDepth);
+        uniqueFiles.forEach(f => formData.append('filenames', f));
+
+        const response = await fetch('/api/consbulle/analyze-structure/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            renderSheetConfigTable(data.sheet_configs);
+        } else {
+            alert('Erreur lors de l\'analyse');
+        }
+
+    } catch (e) {
+        console.error(e);
+        alert('Erreur technique: ' + e.message);
+    }
+}
+
+function renderSheetConfigTable(configs) {
+    const tbody = document.getElementById('sheet-config-body');
+    tbody.innerHTML = '';
+
+    // Configs is { "filename": { "SheetName": { row: 3, col: "C" } } }
+
+    for (const [filename, sheets] of Object.entries(configs)) {
+        for (const [sheetName, config] of Object.entries(sheets)) {
+            const tr = document.createElement('tr');
+
+            const fileId = filename.replace(/[^a-zA-Z0-9]/g, '_');
+            const sheetId = sheetName.replace(/[^a-zA-Z0-9]/g, '_');
+            const uniqueKey = `${fileId}__${sheetId}`; // Double underscore separator
+
+            tr.innerHTML = `
+                <td title="${filename}" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${filename}
+                </td>
+                <td>${sheetName}</td>
+                <td>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="number" class="config-row-start" data-key="${uniqueKey}" value="1" style="width: 40px;">
+                        -
+                        <input type="number" class="config-row-end" data-key="${uniqueKey}" value="${config.row}" style="width: 40px; font-weight: bold; color: #1e40af;">
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="text" class="config-col-start" data-key="${uniqueKey}" value="A" style="width: 30px; text-transform: uppercase;">
+                        -
+                        <input type="text" class="config-col-end" data-key="${uniqueKey}" value="${config.col}" style="width: 30px; font-weight: bold; color: #1e40af; text-transform: uppercase;">
+                    </div>
+                </td>
+                <td>
+                    <button class="btn-sm btn-light" onclick="openCbPreviewModal('${filename}', '${sheetName}')">👁️</button>
+                    <input type="hidden" class="config-filename" data-key="${uniqueKey}" value="${filename}">
+                    <input type="hidden" class="config-sheetname" data-key="${uniqueKey}" value="${sheetName}">
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+}
+
+// ============================================
+// PREVIEW MODAL
+// ============================================
+function openCbPreviewModal(filename, sheetName) {
+    const modal = document.getElementById('cb-preview-modal');
+    modal.style.display = 'block';
+    document.getElementById('cb-preview-modal-title').innerText = `Aperçu : ${filename} / ${sheetName}`;
+
+    const container = document.getElementById('cb-preview-modal-content');
+    container.innerHTML = '<div class="spinner"></div>';
+
+    // Reuse existing API to fetch content
+    fetch('/api/sheet-content/', {
+        method: 'POST',
+        body: JSON.stringify({ filename: filename, sheet_name: sheetName, max_rows: 50 }),
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<div class="error-msg">${data.error}</div>`;
+            } else {
+                renderGrid(data.data, container.id); // Reuse renderGrid
+            }
+        })
+        .catch(err => {
+            container.innerHTML = `<div class="error-msg">${err.message}</div>`;
+        });
+}
+
+function closeCbPreviewModal() {
+    document.getElementById('cb-preview-modal').style.display = 'none';
+}
+
+// ============================================
+// CONSOLIDATION GENERATION
+// ============================================
+
+async function generateConsolidation() {
+    const btn = document.getElementById('btn-generate-cons');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Génération en cours...';
+    }
+
+    try {
+        const formData = new FormData();
+        const allFiles = [];
+
+        // Collect all files
+        consBulleData.responsables.forEach(resp => {
+            resp.sites.forEach(site => {
+                if (site.file) {
+                    allFiles.push(site.file);
+                    formData.append('files', site.file);
+                }
+            });
+        });
+
+        if (allFiles.length === 0 && consBulleData.sheetMode !== 'manual') {
+            alert('Veuillez ajouter des fichiers Excel');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Lancer la Consolidation';
+            }
+            return;
+        }
+
+        // Collect Sheet Configs from Table
+        const sheetConfigs = {};
+        document.querySelectorAll('.config-row-end').forEach(input => {
+            const key = input.dataset.key;
+            const filename = document.querySelector(`.config-filename[data-key="${key}"]`).value;
+            const sheetName = document.querySelector(`.config-sheetname[data-key="${key}"]`).value;
+
+            if (!sheetConfigs[filename]) sheetConfigs[filename] = {};
+
+            sheetConfigs[filename][sheetName] = {
+                row_start: parseInt(document.querySelector(`.config-row-start[data-key="${key}"]`).value) || 1,
+                row_end: parseInt(input.value) || 1,
+                col_start: document.querySelector(`.config-col-start[data-key="${key}"]`).value || 'A',
+                col_end: document.querySelector(`.config-col-end[data-key="${key}"]`).value || 'A'
+            };
+        });
+
+        // Prepare Config
+        const config = {
+            output_filename: document.getElementById('cb-output-filename').value || 'Consolidation',
+            responsables: consBulleData.responsables.map(r => ({
+                id: r.id,
+                name: r.name,
+                sites: r.sites.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    filename: s.filename
+                }))
+            })),
+            sheet_mode: consBulleData.sheetMode, // auto/manual
+            selected_sheets: consBulleData.selectedSheets,
+            sheet_ranges: consBulleData.sheetRanges,
+            mode_options: getModeOptions(),
+            fixed_headers: null, // Deprecated global config
+            sheet_configs: sheetConfigs // New Per-Sheet Config
+        };
+
+        formData.append('config', JSON.stringify(config));
+
+        const response = await fetch('/api/consbulle/generate/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = (config.output_filename || 'Consolidation') + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            a.remove();
+
+            // Show success in preview bar
+            updatePreviewBarGeneratedFile(blob, a.download);
+
+            alert('✅ Consolidation terminée avec succès !');
+        } else {
+            const errorData = await response.json();
+            alert('Erreur: ' + (errorData.error || 'Erreur inconnue lors de la consolidation'));
+        }
+
+    } catch (error) {
+        console.error('Error generating consolidation:', error);
+        alert('Erreur technique: ' + error.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🚀 Lancer la Consolidation';
+        }
+    }
+}
+
+function previewSourceFile(idx) {
+    if (window.previewSourceFiles && window.previewSourceFiles[idx]) {
+        const file = window.previewSourceFiles[idx];
+        openExcelPreview(file, file.name);
+    }
+}
+
+function updatePreviewBarGeneratedFile(blob, filename) {
+    const container = document.getElementById('preview-generated-file');
+
+    if (!container) return;
+
+    generatedFileBlob = blob;
+    generatedFileName = filename;
+
+    if (!blob || !filename) {
+        container.innerHTML = '<span style="color: #94a3b8; font-size: 12px;">Aucun fichier généré</span>';
+        return;
+    }
+
+    container.innerHTML = `
+        <button onclick="previewGeneratedFile()" 
+            style="padding: 8px 16px; background: white; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+            onmouseover="this.style.background='#dcfce7'; this.style.borderColor='#10b981';"
+            onmouseout="this.style.background='white'; this.style.borderColor='#bbf7d0';">
+            <span style="font-size: 18px;">📊</span>
+            <span style="font-weight: 600; color: #10b981;">${filename}</span>
+            <span style="color: #94a3b8; font-size: 11px;">(cliquez pour voir)</span>
+        </button>
+    `;
+
+    // Show the bar
+    showPreviewBar();
+}
+
+function previewGeneratedFile() {
+    if (generatedFileBlob && generatedFileName) {
+        const file = new File([generatedFileBlob], generatedFileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        openExcelPreview(file, generatedFileName);
+    }
+}
+
+
+/* ============================================
+   TEST MODE & PREVIEW
+   ============================================ */
+
+let testState = {
+    activeTab: 'config', // 'config' or 'test'
+    currentFile: null,   // Currently previewed file object or 'result'
+    previewResult: null  // Store result info {filename: '...', url: '...'}
+};
+
+function switchConsBulleTab(tabName) {
+    testState.activeTab = tabName;
+
+    // Update buttons
+    document.querySelectorAll('.btn-tab').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-cb-${tabName}`).classList.add('active');
+
+    // Update content
+    document.querySelectorAll('.consbulle-tab-content').forEach(el => el.style.display = 'none');
+    document.getElementById(`cb-content-${tabName}`).style.display = 'block';
+
+    if (tabName === 'test') {
+        renderTestTabs();
+    }
+}
+
+function renderTestTabs() {
+    const container = document.getElementById('test-consbulle-tabs');
+    if (!container) return;
+
+    let html = '';
+
+    // 1. Result Tab
+    const isResultActive = testState.currentFile === 'result';
+    html += `
+        <button class="file-tab ${isResultActive ? 'active' : ''} ${testState.previewResult ? 'has-result' : ''}" 
+                onclick="renderSheetPreview('result')">
+            Output: ${consBulleData.outputFilename || 'Consolidation'}
+        </button>
+    `;
+
+    // 2. Source Files Tabs
+    consBulleData.responsables.forEach(resp => {
+        resp.sites.forEach(site => {
+            if (site.file || site.filename) {
+                const isActive = testState.currentFile && testState.currentFile.id === site.id;
+                html += `
+                    <button class="file-tab ${isActive ? 'active' : ''}" 
+                            onclick="selectTestFile('${resp.id}', '${site.id}')">
+                        ${site.name}
+                    </button>
+                `;
+            }
+        });
+    });
+
+    container.innerHTML = html;
+
+    // Select result by default if nothing selected
+    if (!testState.currentFile) {
+        renderSheetPreview('result');
+    }
+}
+
+function selectTestFile(respId, siteId) {
+    const resp = consBulleData.responsables.find(r => r.id === respId);
+    if (!resp) return;
+    const site = resp.sites.find(s => s.id === siteId);
+    if (!site) return;
+
+    renderSheetPreview(site);
+}
+
+async function renderSheetPreview(fileOrResult) {
+    testState.currentFile = fileOrResult;
+    renderTestTabs(); // Update active class
+
+    const table = document.getElementById('cb-test-preview-table');
+    const infoName = document.getElementById('cb-preview-sheet-name');
+    const infoRows = document.getElementById('cb-preview-rows');
+    const infoCols = document.getElementById('cb-preview-cols');
+
+    // Clear current view
+    if (table && table.querySelector('thead')) {
+        table.querySelector('thead').innerHTML = '';
+        table.querySelector('tbody').innerHTML = '<tr><td style="padding:20px; text-align:center;">Chargement...</td></tr>';
+    }
+
+    // Handle Result View
+    if (fileOrResult === 'result') {
+        if (!testState.previewResult) {
+            if (table) {
+                table.querySelector('tbody').innerHTML = `
+                    <tr><td style="padding:40px; text-align:center; color:#64748b;">
+                        <div style="font-size:24px; margin-bottom:10px;">🧮</div>
+                        Cliquez sur "Calculer Excel" pour générer la consolidation
+                    </td></tr>`;
+            }
+            if (infoName) infoName.textContent = '-';
+            if (infoRows) infoRows.textContent = '-';
+            if (infoCols) infoCols.textContent = '-';
+            return;
+        }
+        // Fetch Result Content
+        await fetchAndRenderSheet(testState.previewResult.filename, 'Résultat');
+        return;
+    }
+
+    // Handle Source File View
+    if (fileOrResult.filename) {
+        // Use first detected sheet or default
+        const sheetName = (fileOrResult.detected_sheets && fileOrResult.detected_sheets.length > 0)
+            ? fileOrResult.detected_sheets[0]
+            : null;
+
+        await fetchAndRenderSheet(fileOrResult.filename, sheetName, fileOrResult);
+    }
+}
+
+async function fetchAndRenderSheet(filename, sheetName, siteObj = null) {
+    try {
+        const response = await fetch('/api/sheet-content/', {
+            method: 'POST',
+            body: JSON.stringify({
+                filename: filename,
+                sheet_name: sheetName,
+                site: siteObj, // Pass site object for fallback if filename is pathless
+                max_rows: 50
+            }),
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            renderGrid(data.data, data.sheet_name, data.dimensions);
+        } else {
+            showErrorInGrid(data.error);
+        }
+    } catch (error) {
+        showErrorInGrid(error.message);
+    }
+}
+
+function renderGrid(rows, sheetName, dims) {
+    const table = document.getElementById('cb-test-preview-table');
+    if (!table) return;
+
+    // Update Info Bar
+    const infoName = document.getElementById('cb-preview-sheet-name');
+    const infoRows = document.getElementById('cb-preview-rows');
+    const infoCols = document.getElementById('cb-preview-cols');
+
+    if (infoName) infoName.textContent = sheetName;
+    if (infoRows) infoRows.textContent = dims.rows;
+    if (infoCols) infoCols.textContent = dims.cols;
+
+    // Headers (A, B, C...)
+    let theadHtml = '<tr><th></th>'; // Corner cell
+    if (rows.length > 0) {
+        for (let i = 0; i < rows[0].length; i++) {
+            theadHtml += `<th>${getColumnLetter(i + 1)}</th>`;
+        }
+    }
+    theadHtml += '</tr>';
+    table.querySelector('thead').innerHTML = theadHtml;
+
+    // Body
+    let tbodyHtml = '';
+    rows.forEach((row, idx) => {
+        tbodyHtml += `<tr><td class="row-header">${idx + 1}</td>`;
+        row.forEach(cell => {
+            tbodyHtml += `<td>${cell || ''}</td>`;
+        });
+        tbodyHtml += '</tr>';
+    });
+    table.querySelector('tbody').innerHTML = tbodyHtml;
+}
+
+function getColumnLetter(colIndex) {
+    let letter = "";
+    while (colIndex > 0) {
+        let temp = (colIndex - 1) % 26;
+        letter = String.fromCharCode(temp + 65) + letter;
+        colIndex = (colIndex - temp - 1) / 26;
+    }
+    return letter;
+}
+
+function showErrorInGrid(msg) {
+    const table = document.getElementById('cb-test-preview-table');
+    if (table) {
+        table.querySelector('tbody').innerHTML = `
+            <tr><td style="padding:20px; text-align:center; color:#ef4444;">
+                Erreur: ${msg}
+            </td></tr>`;
+    }
+}
+
+async function calculateConsBulleTest() {
+    const btn = document.querySelector('#cb-content-test .btn-success');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Calcul...';
+    btn.disabled = true;
+
+    try {
+        // Collect Data
+        const payload = {
+            output_filename: consBulleData.outputFilename,
+            responsables: consBulleData.responsables,
+            mode_options: getModeOptions(),
+            // Ensure we tell backend this is a PREVIEW
+            is_preview: true
+        };
+
+        const response = await fetch('/api/preview-consolidation/', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            testState.previewResult = {
+                filename: data.filename,
+                url: data.download_url
+            };
+            // Render Result
+            renderSheetPreview('result');
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+
+    } catch (e) {
+        alert('Erreur technique: ' + e.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+

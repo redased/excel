@@ -61,7 +61,7 @@ async function handleFileSelect(event) {
 
 function renderFilesList() {
     const files = consolidationState.uploadedFilesInfo || [];
-    
+
     if (files.length === 0) {
         document.getElementById('files-list').innerHTML = '<div style="padding:10px; text-align:center; color:red;">Aucun fichier chargé</div>';
         return;
@@ -72,7 +72,7 @@ function renderFilesList() {
         // Default select all sheets or just the first one? User usually wants one specific sheet per file or all. 
         // Let's select all by default if there are few, or let user decide. 
         // Better: Select ALL by default as per "check all" behavior.
-        const sheetOptions = f.sheets && f.sheets.length > 0 
+        const sheetOptions = f.sheets && f.sheets.length > 0
             ? f.sheets.map(s => `<option value="${s}" selected>${s}</option>`).join('')
             : '<option value="Feuille1" selected>Feuille1</option>'; // Fallback
 
@@ -104,7 +104,7 @@ function getFileInfos() {
         const respInput = document.querySelector(`[data-index="${i}"][data-field="responsible"]`);
         const branchInput = document.querySelector(`[data-index="${i}"][data-field="branch"]`);
         const costInput = document.querySelector(`[data-index="${i}"][data-field="cost_center"]`);
-        
+
         // Get selected sheets
         const sheetSelect = document.querySelector(`[data-index="${i}"][data-field="sheets"]`);
         const selectedSheets = Array.from(sheetSelect && sheetSelect.selectedOptions ? sheetSelect.selectedOptions : []).map(opt => opt.value);
@@ -238,4 +238,209 @@ function showConsolidationStatus(message, type) {
     const statusEl = document.getElementById('cons-status');
     statusEl.textContent = message;
     statusEl.className = `ai-status ${type}`;
+}
+
+// ============================================
+// TEST CONSOLIDATION FEATURE
+// ============================================
+
+function switchConsTab(tab) {
+    // Update buttons
+    document.querySelectorAll('.cons-mode-tabs .btn-tab').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-cons-${tab}`).classList.add('active');
+
+    // Update content
+    document.querySelectorAll('.cons-tab-content').forEach(content => content.classList.remove('active'));
+    document.querySelectorAll('.cons-tab-content').forEach(content => content.style.display = 'none');
+
+    const activeContent = document.getElementById(`cons-content-${tab}`);
+    activeContent.classList.add('active');
+    activeContent.style.display = 'block';
+
+    if (tab === 'test') {
+        renderTestTabs();
+    }
+}
+
+function renderTestTabs() {
+    const tabsContainer = document.getElementById('test-file-tabs');
+    const files = consolidationState.uploadedFilesInfo || [];
+
+    if (files.length === 0) {
+        tabsContainer.innerHTML = '<button class="file-tab active">Aucun fichier chargé</button>';
+        return;
+    }
+
+    let html = '';
+    files.forEach((file, index) => {
+        html += `<button class="file-tab ${index === 0 ? 'active' : ''}" onclick="loadTestFileContent('${file.filepath}', this)">📄 ${file.name}</button>`;
+    });
+
+    // Add result tab placeholder (disabled until calculated)
+    html += `<button class="file-tab result-tab" id="tab-result" onclick="loadResultContent()" style="display:none; background:#dcfce7; color:#166534; border-color:#86efac;">📊 Résultat Consolidation</button>`;
+
+    tabsContainer.innerHTML = html;
+
+    // Load first file by default
+    if (files.length > 0) {
+        loadTestFileContent(files[0].filepath, tabsContainer.children[0]);
+    }
+}
+
+let currentTestFilename = null;
+
+async function loadTestFileContent(filename, tabElement) {
+    if (tabElement) {
+        document.querySelectorAll('.file-tab').forEach(t => t.classList.remove('active'));
+        tabElement.classList.add('active');
+    }
+
+    currentTestFilename = filename;
+    showTestLoading();
+
+    try {
+        const response = await fetch('/api/sheet-content/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename: filename,
+                max_rows: 50 // Preview limit
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            renderExcelGrid(data.data, data.sheet_name, data.dimensions);
+        } else {
+            showTestError(data.error);
+        }
+    } catch (error) {
+        showTestError(error.message);
+    }
+}
+
+async function calculateConsolidationTest() {
+    if (consolidationState.uploadedFilesInfo.length === 0) {
+        alert("Veuillez d'abord charger des fichiers dans l'onglet Configuration");
+        return;
+    }
+
+    const btn = document.querySelector('button[onclick="calculateConsolidationTest()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Calcul en cours...';
+    btn.disabled = true;
+
+    try {
+        const fileInfos = getFileInfos();
+
+        const response = await fetch('/api/preview-consolidation/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                files: fileInfos,
+                sheet_name: document.getElementById('cons-sheet').value,
+                start_column: document.getElementById('cons-start-col').value.toUpperCase(),
+                end_column: document.getElementById('cons-end-col').value.toUpperCase(),
+                start_row: parseInt(document.getElementById('cons-start-row').value),
+                end_row: parseInt(document.getElementById('cons-end-row').value),
+                group_by: document.getElementById('cons-group-by').value
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show result tab
+            const resultTab = document.getElementById('tab-result');
+            resultTab.style.display = 'inline-block';
+            resultTab.setAttribute('data-filename', data.filename);
+
+            // Switch to it
+            loadResultContent();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert('Erreur de communication avec le serveur');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function loadResultContent() {
+    const resultTab = document.getElementById('tab-result');
+    const filename = resultTab.getAttribute('data-filename');
+
+    if (filename) {
+        loadTestFileContent(filename, resultTab);
+    }
+}
+
+function renderExcelGrid(data, sheetName, dimensions) {
+    const table = document.getElementById('test-preview-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+
+    // Update info bar
+    document.getElementById('preview-sheet-name').textContent = sheetName || 'Inconnu';
+    document.getElementById('preview-rows').textContent = dimensions ? dimensions.rows : data.length;
+    document.getElementById('preview-cols').textContent = dimensions ? dimensions.cols : (data[0] ? data[0].length : 0);
+
+    // Clear
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td style="padding:20px; text-align:center;">Aucune donnée</td></tr>';
+        return;
+    }
+
+    // Header (A, B, C...)
+    let headHtml = '<tr><th class="row-header"></th>'; // Corner cell
+    const colCount = data[0].length;
+
+    for (let i = 0; i < colCount; i++) {
+        headHtml += `<th>${getColumnLetter(i + 1)}</th>`;
+    }
+    headHtml += '</tr>';
+    thead.innerHTML = headHtml;
+
+    // Body
+    let bodyHtml = '';
+    data.forEach((row, rowIndex) => {
+        bodyHtml += `<tr>`;
+        bodyHtml += `<td class="row-header">${rowIndex + 1}</td>`; // Row number
+
+        row.forEach(cell => {
+            const val = cell === null || cell === undefined ? '' : cell;
+            bodyHtml += `<td>${val}</td>`;
+        });
+
+        bodyHtml += `</tr>`;
+    });
+    tbody.innerHTML = bodyHtml;
+}
+
+function getColumnLetter(colIndex) {
+    let temp, letter = '';
+    while (colIndex > 0) {
+        temp = (colIndex - 1) % 26;
+        letter = String.fromCharCode(temp + 65) + letter;
+        colIndex = (colIndex - temp - 1) / 26;
+    }
+    return letter;
+}
+
+function showTestLoading() {
+    const tbody = document.querySelector('#test-preview-table tbody');
+    tbody.innerHTML = '<tr><td colspan="100" style="padding:40px; text-align:center;"><div class="loading-spinner" style="margin:0 auto 10px;"></div>Chargement des données...</td></tr>';
+}
+
+function showTestError(msg) {
+    const tbody = document.querySelector('#test-preview-table tbody');
+    tbody.innerHTML = `<tr><td colspan="100" style="padding:40px; text-align:center; color:#ef4444;">❌ ${msg}</td></tr>`;
 }
