@@ -1386,16 +1386,26 @@
                     <div class="card" style="margin-bottom: 20px;">
                         <div class="card-body">
                             <div class="folder-upload-zone" id="consbulle-folder-drop" style="padding: 40px;">
-                                <input type="file" id="consbulle-files" multiple accept=".xlsx,.xls" webkitdirectory>
+                                <input type="file" id="consbulle-files" multiple webkitdirectory
+                                    directory style="display: none;">
                                 <div class="upload-placeholder">
                                     <span style="font-size: 48px;">📂</span>
-                                    <h3 style="margin: 12px 0 8px;">Glissez un dossier ici</h3>
+                                    <h3 style="margin: 12px 0 8px;">Glissez un dossier Excel ici</h3>
                                     <p style="color: #64748b;">Le nom du dossier = Responsable • Les fichiers
                                         Excel = Sites
                                     </p>
-                                    <span style="color: #94a3b8; font-size: 12px;">ou cliquez pour sélectionner
-                                        des
-                                        fichiers</span>
+                                    <div
+                                        style="display: flex; gap: 12px; justify-content: center; margin-top: 16px; flex-wrap: wrap;">
+                                        <button type="button" class="btn btn-primary"
+                                            onclick="document.getElementById('consbulle-files').click()"
+                                            style="padding: 10px 20px;">
+                                            📁 Sélectionner un DOSSIER
+                                        </button>
+                                    </div>
+                                    <p style="color: #94a3b8; font-size: 12px; margin-top: 12px;">
+                                        💡 Conseil: Si le glisser-déposer ne fonctionne pas, utilisez les boutons
+                                        ci-dessus
+                                    </p>
                                 </div>
                             </div>
                         </div>

@@ -404,164 +404,153 @@ class GenerateConsBulleV2APIView(View):
             selected_sheets = config_data.get('selected_sheets', [])
             files = request.FILES.getlist('files')
             
-            # Parse file mappings
-            file_mappings = request.POST.getlist('file_mapping')
-            file_map = {}
-            for mapping_str in file_mappings:
-                mapping = json.loads(mapping_str)
-                file_map[mapping['filename']] = mapping
+            # 1. Identify MASTER TEMPLATE (First File)
+            # We assume the first file in the list is the intended template
+            if not files:
+                 return JsonResponse({'success': False, 'error': 'No files uploaded'}, status=400)
             
-            # Group data by sheet name
-            sheets_data = {} # { 'SheetName': [ (SiteName, SrcFile), ... ] }
+            master_file = files[0]
+            master_filename = master_file.name
             
-            # Initialize Destination Workbook
-            wb = Workbook()
-            if wb.active:
-                wb.remove(wb.active)
-            
-            # Map uploaded files
-            uploaded_files = {f.name: f for f in files}
-            
-            # 1. Collect all sources
-            for resp in config_data.get('responsables', []):
-                for site in resp.get('sites', []):
-                    filename = site.get('filename')
-                    if filename and filename in uploaded_files:
-                        try:
-                            # We need to peek into the file silently or trust detected_sheets if reliable
-                            # But robust way is open it (or use cached mapping if available)
-                            # For now, let's open to be sure which sheets exist
-                            f = uploaded_files[filename]
-                            f.seek(0)
-                            src_wb = load_workbook(f, read_only=True)
-                            
-                            for sheet_name in src_wb.sheetnames:
-                                if selected_sheets and sheet_name not in selected_sheets:
-                                    continue
-                                
-                                if sheet_name not in sheets_data:
-                                    sheets_data[sheet_name] = []
-                                
-                                sheets_data[sheet_name].append({
-                                    'site_name': site.get('name', 'Site'),
-                                    'filename': filename
-                                })
-                            
-                            src_wb.close()
-                            f.seek(0)
-                        except Exception as e:
-                            print(f"Error reading {filename}: {e}")
+            # Helper to find file by name
+            def get_file_path(fname):
+                 return Path(settings.MEDIA_ROOT) / "uploads" / fname
 
+            # Load Master WB
+            # We need one instance to WRITE (wb_out)
+            # And we strictly need to read its values for summation too, checking formulas...
+            # Actually, we can load it once. content is in access.
+            
+            master_path = get_file_path(master_filename)
+            if not master_path.exists():
+                # Fallback to saving it if not yet saved (it was saved in parse, but let's be safe)
+                 pass 
+
+            # We use the previously saved path from Parse step, assuming they are in uploads/
+            # But here `files` are InMemoryUploadedFile objects.
+            # Let's ensure they are on disk to be loaded by openpyxl
+            upload_dir = Path(settings.MEDIA_ROOT) / "uploads"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            saved_paths = {}
+            for f in files:
+                f_path = upload_dir / f.name
+                if not f_path.exists(): # Should exist from parse step, but if not:
+                    with open(f_path, 'wb+') as dest:
+                        for chunk in f.chunks():
+                            dest.write(chunk)
+                saved_paths[f.name] = f_path
+
+            # Load Master Workbook as the Output Target
+            # This PRESERVES Logic, Macros, Images, Charts of the first file
+            wb = load_workbook(saved_paths[master_filename]) 
+            
             # Parse per-sheet configs
             sheet_configs = config_data.get('sheet_configs', {})
 
-            # 2. Process each grouped sheet
-            for sheet_name, sources in sheets_data.items():
-                if not sources: continue
+            # 2. Iterate Master Sheets
+            for sheet_name in wb.sheetnames:
+                # Check if this sheet is selected for consolidation
+                # If selected_sheets is active, and this sheet not in it, we might want to SKIP logic OR DELETE it?
+                # User says "feuil a ne pas toucher". So if not selected, we TOUCH NOTHING.
+                if selected_sheets and sheet_name not in selected_sheets:
+                    continue 
+
+                ws = wb[sheet_name]
                 
-                # Use the first source as the TEMPLATE (Base)
-                base_info = sources[0]
-                base_filename = base_info['filename']
-                base_file = uploaded_files[base_filename]
-                base_file.seek(0)
-                base_wb = load_workbook(base_file)
-                base_ws = base_wb[sheet_name]
+                # Identify Sources for this sheet
+                # We reuse sheets_data logic or just check all files?
+                # sheets_data was: { 'SheetName': [ (SiteName, SrcFile), ... ] }
+                # Let's rebuild a simple list of source files that HAVE this sheet
+                sources_for_sheet = []
+                for f in files:
+                    if f.name == master_filename: continue # Skip master here, we add it later logic? 
+                    # No, we need master values too if we zero out and sum.
+                    # Actually, we are MODIFYING master.
+                    
+                    # Check if file has this sheet
+                    # Optimal: Open once. But simple loop is safer for now.
+                    try:
+                        f_wb = load_workbook(saved_paths[f.name], read_only=True)
+                        if sheet_name in f_wb.sheetnames:
+                            sources_for_sheet.append(f.name)
+                        f_wb.close()
+                    except:
+                        pass
                 
-                # Create Destination Sheet (Copy of Base)
-                dest_ws = wb.create_sheet(title=sheet_name[:31])
+                if not sources_for_sheet:
+                    continue # No other files have this sheet, keep master as is
                 
-                # Copy Base Content & Styles
-                for row in base_ws.iter_rows():
+                # SUMMATION LOGIC
+                # 1. Build Sum Matrix from (Master + All Sources)
+                
+                sum_matrix = {} # {(row, col): value}
+                
+                # Config for this sheet
+                fix_row_start, fix_row_end = 1, 39
+                fix_col_start, fix_col_end = 1, 1 # Col A
+                
+                if master_filename in sheet_configs and sheet_name in sheet_configs[master_filename]:
+                    try:
+                        sc = sheet_configs[master_filename][sheet_name]
+                        fix_row_start = int(sc.get('row_start', 1))
+                        fix_row_end = int(sc.get('row_end', 39))
+                        fix_col_start = column_index_from_string(sc.get('col_start', 'A'))
+                        fix_col_end = column_index_from_string(sc.get('col_end', 'A'))
+                    except:
+                        pass
+
+                # Scan Function
+                def scan_file_values(filepath):
+                    _wb = load_workbook(filepath, data_only=True)
+                    if sheet_name in _wb.sheetnames:
+                        _ws = _wb[sheet_name]
+                        for row in _ws.iter_rows():
+                            for cell in row:
+                                r, c = cell.row, cell.column
+                                # Skip Fixed Zones (Logic optimization)
+                                if (fix_row_start <= r <= fix_row_end) or (fix_col_start <= c <= fix_col_end):
+                                    continue
+                                
+                                if isinstance(cell.value, (int, float)):
+                                    if (r, c) not in sum_matrix:
+                                        sum_matrix[(r, c)] = 0
+                                    sum_matrix[(r, c)] += cell.value
+                    _wb.close()
+
+                # Scan ALL files including Master (to get its values)
+                scan_file_values(saved_paths[master_filename])
+                for fname in sources_for_sheet:
+                    scan_file_values(saved_paths[fname])
+                
+                # 2. Update Master Sheet (ws)
+                # ws is NOT data_only=True, so it has Formulas. Good.
+                for row in ws.iter_rows():
                     for cell in row:
-                        dest_cell = dest_ws.cell(row=cell.row, column=cell.column, value=cell.value)
-                        if cell.has_style:
-                            dest_cell.font = copy_font(cell.font)
-                            dest_cell.border = copy_border(cell.border)
-                            dest_cell.fill = copy_fill(cell.fill)
-                            dest_cell.number_format = cell.number_format
-                            dest_cell.alignment = copy_alignment(cell.alignment)
-                
-                # Copy Dimensions
-                for col_letter, col_dim in base_ws.column_dimensions.items():
-                    dest_ws.column_dimensions[col_letter].width = col_dim.width
-                
-                # Copy Merges
-                for merged in base_ws.merged_cells.ranges:
-                    dest_ws.merge_cells(str(merged))
-
-                base_wb.close()
-                base_file.seek(0)
-
-                # SUMMATION: Iterate through other sources
-                for src_info in sources[1:]:
-                    filename = src_info['filename']
-                    
-                    # GET SHEET SPECIFIC CONFIG OR DEFAULT
-                    fix_row_start, fix_row_end = 1, 2
-                    fix_col_start, fix_col_end = 1, 2
-                    
-                    if filename in sheet_configs and sheet_name in sheet_configs[filename]:
-                        try:
-                            sc = sheet_configs[filename][sheet_name]
-                            fix_row_start = int(sc.get('row_start', 1))
-                            fix_row_end = int(sc.get('row_end', 2))
-                            fix_col_start = column_index_from_string(sc.get('col_start', 'A'))
-                            fix_col_end = column_index_from_string(sc.get('col_end', 'B'))
-                        except:
-                            pass # fallback to default
-
-                    src_file = uploaded_files[filename]
-                    src_file.seek(0)
-                    src_wb = load_workbook(src_file, data_only=True) # Read values for summation
-                    
-                    if sheet_name not in src_wb.sheetnames:
-                        src_wb.close()
-                        continue
+                        r, c = cell.row, cell.column
+                         # Skip Fixed Zones
+                        if (fix_row_start <= r <= fix_row_end) or (fix_col_start <= c <= fix_col_end):
+                            continue
                         
-                    src_ws = src_wb[sheet_name]
+                        # Preserve Percentage / Ratio Formulas
+                        is_ratio = isinstance(cell.value, str) and cell.value.startswith('=') and '/' in cell.value
+                        is_pct = cell.number_format and '%' in cell.number_format
+                        
+                        if is_ratio or is_pct:
+                            continue
+                        
+                        # OTHERWISE: OVERWRITE WITH SUM
+                        # We want to overwrite if it's a Formula (Sum, etc) OR a Number.
+                        # We do NOT want to overwrite Text/Labels.
+                        
+                        is_formula = isinstance(cell.value, str) and cell.value.startswith('=')
+                        is_number = isinstance(cell.value, (int, float))
+                        
+                        if is_formula or is_number:
+                            # Use collected sum, or 0 if nothing collected (e.g. uncalculated formulas)
+                            cell.value = sum_matrix.get((r, c), 0)
+                        else:
+                            pass # Text, empty, etc. Keep as is.
 
-                    # Iterate cells in source
-                    for row in src_ws.iter_rows():
-                        for cell in row:
-                            r, c = cell.row, cell.column
-                            
-                            # CHECK FIXED ZONES
-                            in_fixed_rows = (fix_row_start <= r <= fix_row_end)
-                            in_fixed_cols = (fix_col_start <= c <= fix_col_end)
-                            
-                            if in_fixed_rows or in_fixed_cols:
-                                continue # Skip fixed zones (keep base value)
-                            
-                            # Get Destination Cell
-                            dest_cell = dest_ws.cell(row=r, column=c)
-                            
-                            # CHECK FORMULA / PERCENTAGE in Destination
-                            # If dest has formula (starts with =), DO NOT OVERWRITE/SUM
-                            if isinstance(dest_cell.value, str) and dest_cell.value.startswith('='):
-                                continue
-                                
-                            # Check Percentage Formatting
-                            if dest_cell.number_format and '%' in dest_cell.number_format:
-                                continue
-                                
-                            # SUMMATION LOGIC
-                            try:
-                                src_val = cell.value
-                                dest_val = dest_cell.value
-                                
-                                if isinstance(src_val, (int, float)) and isinstance(dest_val, (int, float)):
-                                    dest_cell.value = dest_val + src_val
-                            except:
-                                pass # formatting or type error, keep base value
-                    
-                    src_wb.close()
-                    src_file.seek(0)
-            
-            # Ensure at least one sheet exists
-            if len(wb.sheetnames) == 0:
-                wb.create_sheet(title="Vide")
-                wb.active.cell(row=1, column=1, value="Aucune donnée")
-            
             # Save
             temp_dir = Path(settings.MEDIA_ROOT) / 'temp'
             temp_dir.mkdir(exist_ok=True)

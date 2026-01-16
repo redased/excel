@@ -192,15 +192,16 @@ function initFolderDropZone() {
         await handleFolderDrop(e.dataTransfer);
     });
 
-    // Also support file input
+    // Support folder input (webkitdirectory)
     const fileInput = document.getElementById('consbulle-files');
     if (fileInput) {
         fileInput.addEventListener('change', async (e) => {
+            console.log('Folder input changed, files:', e.target.files.length);
             await handleFileInput(e.target.files);
         });
-
-        dropZone.addEventListener('click', () => fileInput.click());
     }
+
+
 }
 
 async function handleFolderDrop(dataTransfer) {
@@ -208,22 +209,33 @@ async function handleFolderDrop(dataTransfer) {
     const filesByFolder = {};
     const promises = [];
 
+    console.log('=== FOLDER DROP START ===');
     console.log('Processing', items.length, 'items');
 
     // Try webkitGetAsEntry first for folder support
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
+        console.log('Item', i, '- kind:', item.kind, 'type:', item.type);
 
         if (item.webkitGetAsEntry) {
             const entry = item.webkitGetAsEntry();
             if (entry) {
-                console.log('Entry:', entry.name, 'isDirectory:', entry.isDirectory);
-                promises.push(processEntry(entry, filesByFolder, entry.name));
+                console.log('Entry:', entry.name, 'isDirectory:', entry.isDirectory, 'isFile:', entry.isFile);
+                // Pass the root folder name to keep files grouped under it
+                promises.push(processEntry(entry, filesByFolder, entry.isDirectory ? entry.name : 'Responsable'));
+            } else {
+                console.log('webkitGetAsEntry returned null for item', i);
             }
         } else if (item.kind === 'file') {
             // Fallback for browsers without webkitGetAsEntry
             const file = item.getAsFile();
+            console.log('Fallback getAsFile:', file ? file.name : 'null');
             if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                // Skip temp files
+                if (file.name.startsWith('~$')) {
+                    console.log('Skipping temp file:', file.name);
+                    continue;
+                }
                 if (!filesByFolder['Responsable']) {
                     filesByFolder['Responsable'] = [];
                 }
@@ -235,13 +247,22 @@ async function handleFolderDrop(dataTransfer) {
     // Wait for all directory reading to complete
     await Promise.all(promises);
 
+    console.log('After webkitGetAsEntry processing, files found:', Object.keys(filesByFolder).length);
+
     // If still no files, try direct files from dataTransfer
     if (Object.keys(filesByFolder).length === 0) {
         const files = dataTransfer.files;
-        console.log('Fallback: checking', files.length, 'files from dataTransfer');
+        console.log('Fallback: checking', files.length, 'files from dataTransfer.files');
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            console.log('File:', file.name, 'webkitRelativePath:', file.webkitRelativePath);
+            console.log('File', i, ':', file.name, 'webkitRelativePath:', file.webkitRelativePath, 'size:', file.size);
+
+            // Skip temp files
+            if (file.name.startsWith('~$')) {
+                console.log('Skipping temp file:', file.name);
+                continue;
+            }
+
             if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
                 const path = file.webkitRelativePath || file.name;
                 const parts = path.split('/');
@@ -255,7 +276,10 @@ async function handleFolderDrop(dataTransfer) {
         }
     }
 
-    console.log('Files by folder:', filesByFolder);
+    console.log('=== FILES BY FOLDER ===');
+    for (const [folder, files] of Object.entries(filesByFolder)) {
+        console.log(`  ${folder}: ${files.length} files -`, files.map(f => f.name).join(', '));
+    }
 
     if (Object.keys(filesByFolder).length > 0) {
         await processDroppedFiles(filesByFolder);
@@ -265,39 +289,70 @@ async function handleFolderDrop(dataTransfer) {
 }
 
 // Recursively process directory entries
-async function processEntry(entry, filesByFolder, folderName) {
+async function processEntry(entry, filesByFolder, rootFolderName) {
+    console.log('processEntry:', entry.name, 'isFile:', entry.isFile, 'isDirectory:', entry.isDirectory, 'rootFolder:', rootFolderName);
+
     if (entry.isFile) {
         return new Promise((resolve) => {
             entry.file((file) => {
-                console.log('Found file:', file.name, 'in folder:', folderName);
+                console.log('  -> Found file:', file.name, 'size:', file.size, 'in folder:', rootFolderName);
+
+                // Skip temp files
+                if (file.name.startsWith('~$')) {
+                    console.log('  -> Skipping temp file:', file.name);
+                    resolve();
+                    return;
+                }
+
                 if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    if (!filesByFolder[folderName]) {
-                        filesByFolder[folderName] = [];
+                    if (!filesByFolder[rootFolderName]) {
+                        filesByFolder[rootFolderName] = [];
                     }
-                    filesByFolder[folderName].push(file);
+                    filesByFolder[rootFolderName].push(file);
+                    console.log('  -> Added to folder:', rootFolderName);
                 }
                 resolve();
             }, (err) => {
-                console.error('Error reading file:', err);
+                console.error('Error reading file entry:', entry.name, err);
                 resolve();
             });
         });
     } else if (entry.isDirectory) {
         return new Promise((resolve) => {
             const reader = entry.createReader();
-            reader.readEntries(async (entries) => {
-                console.log('Reading directory:', entry.name, 'with', entries.length, 'entries');
-                const subPromises = [];
-                for (const subEntry of entries) {
-                    subPromises.push(processEntry(subEntry, filesByFolder, entry.name));
-                }
-                await Promise.all(subPromises);
-                resolve();
-            }, (err) => {
-                console.error('Error reading directory:', err);
-                resolve();
-            });
+
+            // Read all entries (may need multiple calls for large directories)
+            const allEntries = [];
+            const readAllEntries = () => {
+                reader.readEntries(async (entries) => {
+                    console.log('Reading directory:', entry.name, 'got', entries.length, 'entries');
+
+                    if (entries.length > 0) {
+                        allEntries.push(...entries);
+                        // Continue reading (needed for directories with >100 entries)
+                        readAllEntries();
+                    } else {
+                        // Done reading, process all entries
+                        console.log('Total entries in', entry.name, ':', allEntries.length);
+                        const subPromises = [];
+                        for (const subEntry of allEntries) {
+                            // Keep the root folder name, don't change it to subdirectory
+                            subPromises.push(processEntry(subEntry, filesByFolder, rootFolderName));
+                        }
+                        await Promise.all(subPromises);
+                        resolve();
+                    }
+                }, (err) => {
+                    console.error('Error reading directory:', entry.name, err);
+                    resolve();
+                });
+            };
+
+            readAllEntries();
         });
+    } else {
+        console.log('Unknown entry type:', entry.name);
+        return Promise.resolve();
     }
 }
 
