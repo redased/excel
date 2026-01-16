@@ -156,6 +156,8 @@ L'application supporte l'intégration avec **Z.ai** pour :
 
 Pour utiliser l'IA, entrez votre clé API Z.ai dans les paramètres.
 
+https://drive.google.com/drive/folders/1lxRBFb9t-2dhJ0cP200r32wysxn1VpWB?usp=sharing
+
 ## 📄 Licence
 
 Ce projet est sous licence MIT.
